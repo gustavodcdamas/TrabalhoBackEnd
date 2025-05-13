@@ -5,8 +5,8 @@ import {
   Matches,
   MinLength,
 } from 'class-validator';
-import { MessagesHelper } from '../../helper/messages.helper';
-import { RegExHelper } from '../../helper/regex.helper';
+import { MessagesHelper } from '../../../common/helper/messages.helper';
+import { RegExHelper } from '../../../common/helper/regex.helper';
 
 export class CreateUserDto {
   @IsNotEmpty()

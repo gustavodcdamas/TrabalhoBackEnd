@@ -11,8 +11,8 @@ export const databaseConfig: TypeOrmModuleOptions = {
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_DATABASE || 'agency',
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-  synchronize: false, // Importante: definir como false em produção
-  migrationsRun: true, // Executar migrações automaticamente
+  synchronize: false,
+  migrationsRun: true,
   migrations: [__dirname + '/../migrations/**/*{.ts,.js}'],
   migrationsTableName: 'migrations',
 };
