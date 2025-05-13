@@ -1,0 +1,18 @@
+import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+export const databaseConfig: TypeOrmModuleOptions = {
+  type: 'postgres',
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT as string, 10) || 5432,
+  username: process.env.DB_USERNAME || 'postgres',
+  password: process.env.DB_PASSWORD || 'postgres',
+  database: process.env.DB_DATABASE || 'agency',
+  entities: [__dirname + '/../**/*.entity{.ts,.js}'],
+  synchronize: false, // Importante: definir como false em produção
+  migrationsRun: true, // Executar migrações automaticamente
+  migrations: [__dirname + '/../migrations/**/*{.ts,.js}'],
+  migrationsTableName: 'migrations',
+};

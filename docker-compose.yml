@@ -1,0 +1,32 @@
+version: '3.8'
+services:
+  redis:
+    image: redis:latest
+    container_name: redis
+    command: redis-server --requirepass StrongPassword!
+    restart: always
+    environment:
+      - REDIS_PASSWORD=StrongPassword!
+      - REDIS_PORT=6379
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  postgres:
+    image: postgres
+    container_name: postgres
+    restart: always
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=StrongPassword!
+      - POSTGRES_USER=PostgresUser
+      - POSTGRES_DB=agencia-db
+    ports:
+      - "5432:5432"
+
+volumes:
+  redis_data:
+  pg_data:
+
