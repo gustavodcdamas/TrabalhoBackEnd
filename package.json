@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@nest-middlewares/helmet": "^10.0.0",
+    "@nestjs-modules/mailer": "^1.6.1",
     "@nestjs/cache-manager": "^3.0.1",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
@@ -49,6 +50,7 @@
     "config": "^3.3.12",
     "dotenv": "^16.5.0",
     "helmet": "^8.1.0",
+    "mailer": "^0.6.6",
     "multer": "^1.4.5-lts.2",
     "nodemailer": "^7.0.3",
     "passport": "^0.7.0",

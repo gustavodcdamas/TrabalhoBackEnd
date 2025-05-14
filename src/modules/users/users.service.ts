@@ -33,6 +33,13 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
+  async removeByEmail(email: string): Promise<void> {
+  const user = await this.usersRepository.findOne({ where: { email } });
+  if (user) {
+    await this.usersRepository.remove(user);
+  }
+}
+
   async update(id: string, updateUserDto: UpdateUserDto): Promise<UserEntity> {
     const user = await this.usersRepository.findOneByOrFail({ id });
     this.usersRepository.merge(user, updateUserDto);

@@ -14,13 +14,13 @@ export class CreateUserDto {
   @IsString()
   @MinLength(2)
   @MaxLength(100, { message: 'O nome não pode ter mais de 100 caracteres' })
-  first_name: string;
+  firstName: string;
 
   @IsString()
   @MinLength(2)
   @IsNotEmpty()
   @MaxLength(100, { message: 'O último nome não pode ter mais de 100 caracteres' })
-  last_name: string;
+  lastName: string;
 
   @IsNotEmpty({ message: 'O email não pode estar vazio' })
   @IsEmail({}, { message: 'Email inválido' })
