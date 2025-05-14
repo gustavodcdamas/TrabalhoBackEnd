@@ -35,7 +35,7 @@ export class DatabaseInitializer {
         const superAdmin = this.usersRepository.create({
           email: superAdminEmail,
           password: hashedPassword,
-          is_super_admin: true,
+          isSuperAdmin: true,
         });
         
         await this.usersRepository.save(superAdmin);

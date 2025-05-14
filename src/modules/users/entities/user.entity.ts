@@ -7,33 +7,66 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { hashSync } from 'bcrypt';
+import { IsEmail, IsNotEmpty, Length, MaxLength } from 'class-validator';
+import * as bcrypt from 'bcrypt';
+import * as crypto from "crypto";
 
-@Entity({ name: 'UserEntity' })
+@Entity({ name: 'users' })
 export class UserEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true }) // Adicionei unique para emails
+  @Column({ unique: true })
+  @IsEmail()
+  @MaxLength(255)
   email: string;
 
-  @Column()
-  first_name: string;
+  @Column({ default: false })
+  isEmailVerified: boolean;
+
+  @Column({ type: 'varchar', nullable: true, select: false })
+  emailVerificationToken: string | null;
+
+  generateVerificationToken() {
+    this.emailVerificationToken = crypto.randomBytes(32).toString('hex');
+  }
+
+  markEmailAsVerified() {
+    this.isEmailVerified = true;
+    this.emailVerificationToken = null;
+  }
 
   @Column()
-  last_name: string;
+  @IsNotEmpty()
+  @MaxLength(100)
+  firstName: string;
+
+  @Column()
+  @IsNotEmpty()
+  @MaxLength(100)
+  lastName: string;
 
   @Column({ select: false })
+  @Length(8, 100)
   password: string;
 
   @Column({ default: false, select: false })
-  is_admin: boolean;
+  isAdmin: boolean;
 
   @Column({ default: false, select: false })
-  is_super_admin: boolean;
+  isSuperAdmin: boolean;
 
   @Column({ default: true })
-  is_client: boolean;
+  isClient: boolean;
+
+  setAsAdmin() {
+    this.isAdmin = true;
+    this.isClient = false;
+  }
+
+  async setPassword(newPassword: string) {
+    this.password = await bcrypt.hash(newPassword, 10);
+  }
 
   @CreateDateColumn()
   created_at: Date;
@@ -54,8 +87,14 @@ export class UserEntity {
   async comparePassword(attempt: string): Promise<boolean> {
     return (await compare(attempt, this.password)) as boolean;
   }*/
+
   @BeforeInsert()
-  hashPassword() {
-    this.password = hashSync(this.password, 10);
+  async hashPassword() {
+    this.password = await bcrypt.hash(this.password, 10);
   }
+
+  async comparePassword(attempt: string): Promise<boolean> {
+    return await bcrypt.compare(attempt, this.password);
+  }
+  
 }

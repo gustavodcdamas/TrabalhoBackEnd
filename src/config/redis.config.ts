@@ -9,6 +9,7 @@ export const getRedisConfig = async (
     socket: {
       host: configService.get('REDIS_HOST'),
       port: configService.get<number>('REDIS_PORT'),
+      password: configService.get<string>('REDIS_PASSWORD'),
     },
     ttl: 60 * 60 * 24,
   });
