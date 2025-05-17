@@ -30,4 +30,12 @@ export class CreateUserDto {
   @IsString()
   @Matches(RegExHelper.password, { message: MessagesHelper.PASSWORD_VALID })
   password: string;
+
+}
+
+interface SuperAdminConfig {
+  email: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
 }

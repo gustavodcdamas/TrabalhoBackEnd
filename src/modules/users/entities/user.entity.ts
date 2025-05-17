@@ -36,6 +36,33 @@ export class UserEntity {
     this.emailVerificationToken = null;
   }
 
+  @Column({ nullable: true, type: 'varchar', select: false })
+  resetPasswordTokenHash: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  resetPasswordExpires: Date | null;
+
+  async setResetToken(token: string): Promise<void> {
+    this.resetPasswordTokenHash = await bcrypt.hash(token, 10);
+    this.resetPasswordExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutos
+  }
+
+  async validateResetToken(token: string): Promise<boolean> {
+    if (!this.resetPasswordTokenHash || !this.resetPasswordExpires) {
+      return false;
+    }
+    if (this.resetPasswordExpires.getTime() < Date.now()) {
+      return false;
+    }
+    return bcrypt.compare(token, this.resetPasswordTokenHash);
+  }
+
+  async clearResetToken(): Promise<void> {
+    this.resetPasswordTokenHash = null;
+    this.resetPasswordExpires = null;
+  }
+
+
   @Column()
   @IsNotEmpty()
   @MaxLength(100)

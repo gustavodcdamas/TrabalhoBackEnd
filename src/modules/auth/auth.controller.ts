@@ -6,6 +6,7 @@ import { UserEntity } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
 import { AuthGuard } from '@nestjs/passport';
 import { DeleteAccountDto } from './dto/delete-account.dto';
+import { RequestResetPasswordDto, ResetPasswordDto } from './dto/request-reset-password.dto';
 
 @Controller('api/auth')
 export class AuthController {
@@ -13,6 +14,7 @@ export class AuthController {
     private authService: AuthService,
     private userService: UsersService
   ) {}
+  
   @Post('login')
   async login(@Body() loginDto: LoginDto) {
   const user = await this.authService.validateUser(loginDto.email, loginDto.password);
@@ -57,4 +59,15 @@ export class AuthController {
   async getFullUser(email: string) {
     return this.userService.findOneByEmail(email);
   }
+
+  @Post('request-reset-password')
+  async requestReset(@Body() dto: RequestResetPasswordDto) {
+    return this.authService.requestPasswordReset(dto.email);
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.token, dto.newPassword);
+  }
+
 }

@@ -21,28 +21,44 @@ export class DatabaseInitializer {
   }
 
   private async createSuperAdmin(): Promise<void> {
-    const superAdminEmail = this.configService.get('SUPER_ADMIN_EMAIL');
-    const superAdminPassword = this.configService.get('SUPER_ADMIN_PASSWORD');
+    const superAdminEmail = this.configService.get<string>('SUPER_ADMIN_EMAIL');
+    const superAdminPassword = this.configService.get<string>('SUPER_ADMIN_PASSWORD');
 
-    const existingSuperAdmin = await this.usersRepository.findOne({
-      where: { email: superAdminEmail },
-    });
+    // Verifica se as variáveis de ambiente existem
+    if (!superAdminEmail || !superAdminPassword) {
+      this.logger.error('Super admin credentials not configured in environment variables');
+      throw new Error('Super admin credentials not configured');
+    }
 
-    if (!existingSuperAdmin) {
-      try {
-        const hashedPassword = await bcrypt.hash(superAdminPassword, 10);
-        
-        const superAdmin = this.usersRepository.create({
-          email: superAdminEmail,
-          password: hashedPassword,
-          isSuperAdmin: true,
-        });
-        
-        await this.usersRepository.save(superAdmin);
-        this.logger.log('Super admin created successfully');
-      } catch (error) {
-        this.logger.error('Failed to create super admin', error);
+    try {
+      const existingSuperAdmin = await this.usersRepository.findOne({
+        where: { email: superAdminEmail },
+      });
+
+      if (existingSuperAdmin) {
+        this.logger.log('Super admin already exists');
+        return;
       }
+
+      const hashedPassword = await bcrypt.hash(superAdminPassword, 10);
+      
+      // Cria com todos os campos obrigatórios
+      const superAdmin = this.usersRepository.create({
+        firstName: 'Super', // Adicione valores padrão ou obtenha do config
+        lastName: 'Admin',
+        email: superAdminEmail,
+        password: hashedPassword,
+        isSuperAdmin: true,
+        isEmailVerified: true, // Importante para admin
+        isAdmin: true,
+        isClient: false
+      });
+      
+      await this.usersRepository.save(superAdmin);
+      this.logger.log('Super admin created successfully');
+    } catch (error) {
+      this.logger.error('Critical: Failed to create super admin', error);
+      throw error; // Importante para falhar a inicialização se não conseguir criar
     }
   }
 }

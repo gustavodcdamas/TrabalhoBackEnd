@@ -9,9 +9,8 @@ import { ConfigModule } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { MailService } from 'src/common/mail/mail.module';
-import { MailerModule } from '@nestjs-modules/mailer';
-import { MailerService } from '@nestjs-modules/mailer';
+import * as nodemailer from 'nodemailer';
+import { MailService } from '../email/mail.service';
 
 require('dotenv').config();
 
@@ -19,24 +18,13 @@ const jwtSecret = process.env.JWT_SECRET;
 
 @Module({
   imports: [
+    ConfigModule.forRoot(),
     UsersModule,
     PassportModule,
     JwtModule.register({
       privateKey: process.env.JWT_SECRET_KEY,
       secret: jwtSecret,
       signOptions: { expiresIn: '120s' },
-    }),
-    MailerModule.forRoot({
-      transport: {
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-      },
-      defaults: {
-        from: '"Seu App" <levetudo464@gmail.com>',
-      },
     }),
   ],
   controllers: [AuthController],

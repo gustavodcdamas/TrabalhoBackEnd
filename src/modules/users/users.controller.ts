@@ -69,18 +69,18 @@ export class UsersController {
     return this.usersService.update(id, updateUserDto);
   }
 
-  @Delete(':id')
+  @Delete(':email')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('id', ParseUUIDPipe) id: string) {
-    await this.usersService.destroy(id);
+  async remove(@Param('email', ParseUUIDPipe) email: string) {
+    await this.usersService.destroy(email);
   }
 
   @Get('search')
   async search(@Query() query: SearchUserDto) {
     const where: FindOptionsWhere<UserEntity> = {};
 
-    if (query.first_name) {
-      where.firstName = Like(`%${query.first_name}%`);
+    if (query.firstName) {
+      where.firstName = Like(`%${query.firstName}%`);
     }
 
     if (query.email) {
