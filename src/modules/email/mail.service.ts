@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
 
 @Injectable()
 export class MailService {
@@ -110,4 +111,28 @@ export class MailService {
       throw new Error('Falha ao enviar email de redefinição de senha');
     }
   }
+
+  private async sendWhatsAppMessage(to: string, message: string): Promise<void> {
+    try {
+      const formattedNumber = to.replace(/\D/g, '');
+      
+      await axios.post(
+        `${this.configService.get('WHATSAPP_API_URL')}/message/text`,
+        {
+          number: formattedNumber,
+          message: message,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': this.configService.get('WHATSAPP_API_KEY'),
+          },
+        },
+      );
+    } catch (error) {
+      console.error('Error sending WhatsApp message:', error);
+    }
+  }
+
+  
 }

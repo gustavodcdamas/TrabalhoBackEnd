@@ -24,7 +24,7 @@ import { SearchUserDto } from './dto/search-user.dto';
 import { Request } from 'express';
 import { RequestWithUser } from '../../common/interfaces/request-with-user.interface';
 
-@Controller('api/v1/users')
+@Controller('api/users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 

@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config'
 import * as compression from 'compression';
 import helmet from 'helmet';
 import { DatabaseInitializer } from './config/db/database.initializer';
+import * as csurf from 'csurf';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -24,11 +25,16 @@ async function bootstrap() {
     }),
   );
 
-  app.use(compression());
-  app.use(helmet());
+  //app.use(compression());
+  //app.use(helmet());
+  //app.use(csurf());
   
   // CORS
-  app.enableCors();
+  app.enableCors({
+    origin: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true,
+  });
   
   //app.setGlobalPrefix('api');
 

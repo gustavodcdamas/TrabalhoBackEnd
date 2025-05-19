@@ -6,4 +6,6 @@ import { CriativosController } from './criativos.controller';
   controllers: [CriativosController],
   providers: [CriativosService],
 })
-export class CriativosModule {}
+export class CriativosModule {
+  
+}
