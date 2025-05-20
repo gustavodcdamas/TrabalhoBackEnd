@@ -9,8 +9,8 @@ import {
 } from 'typeorm';
 import { IsEmail, IsNotEmpty, IsString, Length, MaxLength } from 'class-validator';
 
-@Entity({ name: 'Service' })
-export class Service {
+@Entity({ name: 'Servicos' })
+export class Servicos {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 

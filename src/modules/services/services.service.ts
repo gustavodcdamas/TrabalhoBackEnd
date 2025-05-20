@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Service } from './entities/service.entity';
+import { Servicos } from './entities/service.entity';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { Inject } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -13,8 +13,8 @@ export class ServicesService {
   private readonly CACHE_TTL = 60 * 60 * 24; // 24 hours in seconds
 
   constructor(
-    @InjectRepository(Service)
-    private readonly servicesRepository: Repository<Service>,
+    @InjectRepository(Servicos)
+    private readonly servicesRepository: Repository<Servicos>,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
@@ -40,7 +40,7 @@ export class ServicesService {
     await this.cacheManager.clear();
   }
 
-  async create(createServiceDto: CreateServiceDto): Promise<Service> {
+  async create(createServiceDto: CreateServiceDto): Promise<Servicos> {
     const service = this.servicesRepository.create(createServiceDto);
     const savedService = await this.servicesRepository.save(service);
     
@@ -50,9 +50,9 @@ export class ServicesService {
     return savedService;
   }
 
-  async findAll(): Promise<Service[]> {
+  async findAll(): Promise<Servicos[]> {
     // Try to get from cache
-    const cachedServices = await this.cacheManager.get<Service[]>(this.CACHE_KEY_SERVICES);
+    const cachedServices = await this.cacheManager.get<Servicos[]>(this.CACHE_KEY_SERVICES);
     
     if (cachedServices) {
       return cachedServices;
@@ -67,7 +67,7 @@ export class ServicesService {
     return services;
   }
 
-  async findOne(id: string): Promise<Service> {
+  async findOne(id: string): Promise<Servicos> {
     const service = await this.servicesRepository.findOne({ where: { id } });
     if (!service) {
       throw new NotFoundException(`Service with ID ${id} not found`);

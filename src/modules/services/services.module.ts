@@ -3,11 +3,11 @@ import { ServicesService } from './services.service';
 import { ServicesController } from './services.controller';
 import { Cache } from 'cache-manager';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Service } from './entities/service.entity';
+import { Servicos } from './entities/service.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Service]),
+    TypeOrmModule.forFeature([Servicos]),
   ],
   controllers: [ServicesController],
   providers: [ServicesService],

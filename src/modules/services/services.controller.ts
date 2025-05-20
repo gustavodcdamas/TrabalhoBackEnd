@@ -3,7 +3,7 @@ import { Controller, Get, Post, Delete, Body, Param, UseGuards } from '@nestjs/c
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ServicesService } from './services.service';
 import { CreateServiceDto } from './dto/create-service.dto';
-import { Service } from './entities/service.entity';
+import { Servicos } from './entities/service.entity';
 
 @Controller('api/services')
 export class ServicesController {
@@ -36,17 +36,17 @@ export class ServicesController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  create(@Body() createServiceDto: CreateServiceDto): Promise<Service> {
+  create(@Body() createServiceDto: CreateServiceDto): Promise<Servicos> {
     return this.servicesService.create(createServiceDto);
   }
 
   @Get()
-  findAll(): Promise<Service[]> {
+  findAll(): Promise<Servicos[]> {
     return this.servicesService.findAll();
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string): Promise<Service> {
+  findOne(@Param('id') id: string): Promise<Servicos> {
     return this.servicesService.findOne(id);
   }
 

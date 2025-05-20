@@ -65,12 +65,12 @@ export class UserEntity {
 
   @Column()
   @IsNotEmpty()
-  @MaxLength(100)
+  @MaxLength(50)
   firstName: string;
 
   @Column()
   @IsNotEmpty()
-  @MaxLength(100)
+  @MaxLength(50)
   lastName: string;
 
   @Column({ select: false })

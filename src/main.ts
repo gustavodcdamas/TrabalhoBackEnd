@@ -25,9 +25,9 @@ async function bootstrap() {
     }),
   );
 
-  //app.use(compression());
-  //app.use(helmet());
-  //app.use(csurf());
+  app.use(compression());
+  app.use(helmet());
+  app.use(csurf());
   
   // CORS
   app.enableCors({
