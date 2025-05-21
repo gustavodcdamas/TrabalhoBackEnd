@@ -70,7 +70,7 @@ export class ServicesService {
   async findOne(id: string): Promise<Servicos> {
     const service = await this.servicesRepository.findOne({ where: { id } });
     if (!service) {
-      throw new NotFoundException(`Service with ID ${id} not found`);
+      throw new NotFoundException(`Serviço com ID ${id} não encontrado`);
     }
     return service;
   }
@@ -79,7 +79,7 @@ export class ServicesService {
     const result = await this.servicesRepository.delete(id);
     
     if (result.affected === 0) {
-      throw new NotFoundException(`Service with ID ${id} not found`);
+      throw new NotFoundException(`Serviço com ID ${id} não encontrado`);
     }
     
     // Invalidate cache

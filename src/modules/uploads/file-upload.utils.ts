@@ -3,20 +3,23 @@ import { existsSync, mkdirSync } from 'fs';
 import { diskStorage } from 'multer';
 import { v4 as uuid } from 'uuid';
 import { HttpException, HttpStatus } from '@nestjs/common';
+import { UploadConfig } from './upload.config';
 
 export const multerConfig = {
-  dest: 'uploads/',
+  dest: UploadConfig.uploadDir,
 };
 
-// Ensure upload directory exists
 export const multerOptions = {
+  limits: {
+    fileSize: UploadConfig.maxFileSize,
+  },
   fileFilter: (req: any, file: any, cb: any) => {
-    if (file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
+    if (UploadConfig.allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
       cb(
         new HttpException(
-          `Unsupported file type ${extname(file.originalname)}`,
+          `Tipo de arquivo não suportado. Apenas ${UploadConfig.allowedMimeTypes.join(', ')} são permitidos.`,
           HttpStatus.BAD_REQUEST,
         ),
         false,

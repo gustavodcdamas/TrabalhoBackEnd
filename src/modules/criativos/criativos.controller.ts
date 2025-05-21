@@ -1,13 +1,18 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { criativosService } from './criativos.service';
-import { CreateCriativoDto } from './dto/create-criativo.dto';
+import { CreateCriativoDto, CriativoWithImageDto } from './dto/create-criativo.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { UpdateCriativoDto } from './dto/update-criativo.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { criativo } from './entities/criativo.entity';
+import { UploadsService } from '../uploads/uploads.service';
 
 @Controller('api/criativos')
 export class CriativosController {
-  constructor(private readonly criativosService: criativosService) {}
+  constructor(
+    private readonly criativosService: criativosService,
+    private readonly uploadsService: UploadsService,
+  ) {}
 
   @Get('redis-test')
   async testRedis() {
@@ -36,8 +41,18 @@ export class CriativosController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  create(@Body() createServiceDto: CreateCriativoDto): Promise<criativo> {
-    return this.criativosService.create(createServiceDto);
+  @UseInterceptors(FileInterceptor('image'))
+  async create(
+    @Body() createCriativoDto: CriativoWithImageDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ): Promise<criativo> {
+    // Se houver arquivo, processa a imagem
+    if (file) {
+      const processedImage = await this.uploadsService.processUploadedImage(file);
+      createCriativoDto.image = processedImage.medium; // Usamos a versão medium como principal
+    }
+
+    return this.criativosService.create(createCriativoDto);
   }
 
   @Get()

@@ -14,7 +14,7 @@ export class criativo {
     @MaxLength(50, { message: 'O nome não pode ter mais de 50 caracteres' })
     title: string;
 
-    @Column()
+    @Column({ nullable: true })
     @IsNotEmpty()
     @IsString()
     @MinLength(2)

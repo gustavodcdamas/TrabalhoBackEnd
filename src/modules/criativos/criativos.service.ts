@@ -7,17 +7,20 @@ import { criativo } from './entities/criativo.entity';
 import { Inject } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import { UploadsService } from '../uploads/uploads.service';
+import * as path from 'path';
 
 
 @Injectable()
 export class criativosService {
-  private readonly CACHE_KEY_SERVICES = 'all_services';
+  private readonly CACHE_KEY_CRIATIVOS = 'all_criativos';
   private readonly CACHE_TTL = 60 * 60 * 24; // 24 hours in seconds
 
   constructor(
     @InjectRepository(criativo)
-    private readonly servicesRepository: Repository<criativo>,
+    private readonly criativosRepository: Repository<criativo>,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly uploadsService: UploadsService,
   ) {}
 
   async checkRedisConnection(): Promise<string> {
@@ -43,48 +46,74 @@ export class criativosService {
   }
 
   async create(CreateCriativoDto: CreateCriativoDto): Promise<criativo> {
-    const service = this.servicesRepository.create(CreateCriativoDto);
-    const savedService = await this.servicesRepository.save(service);
+    const criativo = this.criativosRepository.create(CreateCriativoDto);
+    const savedCriativo = await this.criativosRepository.save(criativo);
     
     // Invalidate cache
-    await this.cacheManager.del(this.CACHE_KEY_SERVICES);
+    await this.cacheManager.del(this.CACHE_KEY_CRIATIVOS);
     
-    return savedService;
+    return savedCriativo;
   }
 
   async findAll(): Promise<criativo[]> {
     // Try to get from cache
-    const cachedServices = await this.cacheManager.get<criativo[]>(this.CACHE_KEY_SERVICES);
+    const cachedCriativos = await this.cacheManager.get<criativo[]>(this.CACHE_KEY_CRIATIVOS);
     
-    if (cachedServices) {
-      return cachedServices;
+    if (cachedCriativos) {
+      return cachedCriativos;
     }
     
     // If not in cache, get from database
-    const services = await this.servicesRepository.find();
+    const criativos = await this.criativosRepository.find();
     
     // Store in cache
-    await this.cacheManager.set(this.CACHE_KEY_SERVICES, services, this.CACHE_TTL);
+    await this.cacheManager.set(this.CACHE_KEY_CRIATIVOS, criativos, this.CACHE_TTL);
     
-    return services;
+    return criativos;
   }
 
   async findOne(id: string): Promise<criativo> {
-    const service = await this.servicesRepository.findOne({ where: { id } });
-    if (!service) {
-      throw new NotFoundException(`Service with ID ${id} not found`);
+    const criativos = await this.criativosRepository.findOne({ where: { id } });
+    if (!criativos) {
+      throw new NotFoundException(`Criativo com ID ${id} não encontrado`);
     }
-    return service;
+    return criativos;
   }
 
   async remove(id: string): Promise<void> {
-    const result = await this.servicesRepository.delete(id);
-    
-    if (result.affected === 0) {
-      throw new NotFoundException(`Service with ID ${id} not found`);
+    const result = await this.criativosRepository.delete(id);
+    const criativo = await this.criativosRepository.findOne({ where: { id } });
+
+    if (!criativo) {
+      throw new NotFoundException(`Criativo com ID ${id} não encontrado`);
     }
     
-    // Invalidate cache
-    await this.cacheManager.del(this.CACHE_KEY_SERVICES);
+    if (result.affected === 0) {
+      throw new NotFoundException(`Criativo com ID ${id} não encontrado`);
+    }
+
+    if (criativo.image) {
+      try {
+        // Remove todas as versões da imagem
+        const basePath = criativo.image.replace('-medium', '');
+        const imageExt = path.extname(basePath);
+        const imageName = path.basename(basePath, imageExt);
+        
+        const versions = ['original', 'thumbnail', 'medium'];
+        await Promise.all(
+          versions.map(version => 
+            this.uploadsService.deleteFile(
+              path.join('uploads', `${imageName}-${version}${imageExt}`)
+            )
+          )
+        );
+      } catch (error) {
+        console.error('Erro ao remover imagens:', error);
+      }
+    }
+    await this.criativosRepository.delete(id);
+    await this.cacheManager.del(this.CACHE_KEY_CRIATIVOS);
   }
+    
+
 }
