@@ -1,8 +1,8 @@
 import { IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn } from 'typeorm';
 
-@Entity('criativo')
-export class criativo {
+@Entity('Criativo')
+export class Criativo {
     
     @PrimaryGeneratedColumn('uuid')
     id: string;

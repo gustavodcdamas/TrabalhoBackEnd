@@ -4,7 +4,7 @@ import { AppService } from './app.service';
 import { DbModule } from './config/db/db.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
-import { ServicesModule } from './modules/services/services.module';
+import { ServicesModule } from './modules/services/servicos.module';
 import { CriativosModule } from './modules/criativos/criativos.module';
 import { IdvModule } from './modules/idv/idv.module';
 import { LandingModule } from './modules/landing/landing.module';

@@ -4,7 +4,7 @@ import { CreateCriativoDto, CriativoWithImageDto } from './dto/create-criativo.d
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UpdateCriativoDto } from './dto/update-criativo.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { criativo } from './entities/criativo.entity';
+import { Criativo } from './entities/criativo.entity';
 import { UploadsService } from '../uploads/uploads.service';
 
 @Controller('api/criativos')
@@ -21,10 +21,9 @@ export class CriativosController {
 
   @Get('cache-test')
   async cacheTest() {
-    // Set value
+
     await this.criativosService.setCacheValue('test_key', 'test_value');
     
-    // Get value
     const value = await this.criativosService.getCacheValue('test_key');
     
     return {
@@ -45,23 +44,23 @@ export class CriativosController {
   async create(
     @Body() createCriativoDto: CriativoWithImageDto,
     @UploadedFile() file?: Express.Multer.File,
-  ): Promise<criativo> {
-    // Se houver arquivo, processa a imagem
+  ): Promise<Criativo> {
+
     if (file) {
       const processedImage = await this.uploadsService.processUploadedImage(file);
-      createCriativoDto.image = processedImage.medium; // Usamos a versão medium como principal
+      createCriativoDto.image = processedImage.medium;
     }
 
     return this.criativosService.create(createCriativoDto);
   }
 
   @Get()
-  findAll(): Promise<criativo[]> {
+  findAll(): Promise<Criativo[]> {
     return this.criativosService.findAll();
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string): Promise<criativo> {
+  findOne(@Param('id') id: string): Promise<Criativo> {
     return this.criativosService.findOne(id);
   }
 
