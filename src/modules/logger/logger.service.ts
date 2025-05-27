@@ -3,7 +3,7 @@ import * as winston from 'winston';
 import * as DailyRotateFile from 'winston-daily-rotate-file';
 
 @Injectable({ scope: Scope.TRANSIENT })
-export class Logger {
+export class LoggerService {
   private logger: winston.Logger;
 
   constructor() {

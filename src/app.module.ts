@@ -26,6 +26,11 @@ import { multerOptions } from './modules/uploads/file-upload.utils';
 import { Cache } from 'cache-manager';
 import { LimpezaModule } from './modules/uploads/limpeza/limpeza.module';
 import { LoggerModule } from './modules/logger/logger.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { AuditLog } from './modules/audit/entities/audit-log.entity';
+import { AuditService } from './modules/audit/audit.service';
+import { LimpezaService } from './modules/uploads/limpeza/limpeza.service';
+import { LoggerService } from './modules/logger/logger.service';
 
 @Module({
   imports: [
@@ -60,9 +65,11 @@ import { LoggerModule } from './modules/logger/logger.module';
     UploadsModule,
     TypeOrmModule.forFeature([UserEntity]),
     LimpezaModule,
-    LoggerModule
+    LoggerModule,
+    ScheduleModule.forRoot(),
+    TypeOrmModule.forFeature([AuditLog]),
   ],
   controllers: [AppController],
-  providers: [AppService, DatabaseInitializer],
+  providers: [AppService, DatabaseInitializer, AuditService, LimpezaService, LoggerService],
 })
 export class AppModule {}
