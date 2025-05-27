@@ -24,6 +24,8 @@ import { databaseConfig } from './config/db/database.config';
 import { getRedisConfig } from './config/redis/redis.config';
 import { multerOptions } from './modules/uploads/file-upload.utils';
 import { Cache } from 'cache-manager';
+import { LimpezaModule } from './modules/uploads/limpeza/limpeza.module';
+import { LoggerModule } from './modules/logger/logger.module';
 
 @Module({
   imports: [
@@ -57,6 +59,8 @@ import { Cache } from 'cache-manager';
     EmailModule,
     UploadsModule,
     TypeOrmModule.forFeature([UserEntity]),
+    LimpezaModule,
+    LoggerModule
   ],
   controllers: [AppController],
   providers: [AppService, DatabaseInitializer],

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { criativosService } from './criativos.service';
 import { CriativosController } from './criativos.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -8,10 +8,14 @@ import { UploadsModule } from '../uploads/uploads.module';
 @Module({
     imports: [
       TypeOrmModule.forFeature([Criativo]),
-      UploadsModule,
+      forwardRef(() => UploadsModule)
     ],
   controllers: [CriativosController],
-  providers: [criativosService],
+  providers: [
+
+    criativosService,
+
+  ],
   exports: [criativosService],
 })
 export class CriativosModule {
