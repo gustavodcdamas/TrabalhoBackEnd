@@ -31,6 +31,7 @@ import { AuditLog } from './modules/audit/entities/audit-log.entity';
 import { AuditService } from './modules/audit/audit.service';
 import { LimpezaService } from './modules/uploads/limpeza/limpeza.service';
 import { LoggerService } from './modules/logger/logger.service';
+import { WppModule } from './modules/wpp/wpp.module';
 
 
 @Module({
