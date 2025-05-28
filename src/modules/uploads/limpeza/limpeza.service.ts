@@ -2,13 +2,13 @@ import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Logger } from '../../logger/logger.service';
+import { LoggerService } from '../../logger/logger.service';
 import { ServicosService } from '../../services/servicos.service';
 import { criativosService } from '../../criativos/criativos.service';
 
 @Injectable()
 export class LimpezaService implements OnModuleInit {
-  constructor(private readonly logger: Logger,
+  constructor(private readonly logger: LoggerService,
   private readonly criativosService: criativosService,
   private readonly servicosService: ServicosService,
   ) {}

@@ -32,6 +32,7 @@ import { AuditService } from './modules/audit/audit.service';
 import { LimpezaService } from './modules/uploads/limpeza/limpeza.service';
 import { LoggerService } from './modules/logger/logger.service';
 
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -56,6 +57,7 @@ import { LoggerService } from './modules/logger/logger.service';
     DbModule,
     UsersModule,
     AuthModule,
+    EmailModule,
     ServicesModule,
     CriativosModule,
     IdvModule,

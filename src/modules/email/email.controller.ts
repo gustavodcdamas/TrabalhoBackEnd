@@ -7,28 +7,13 @@ import { UpdateEmailDto } from './dto/update-email.dto';
 export class EmailController {
   constructor(private readonly emailService: EmailService) {}
 
-  @Post()
-  create(@Body() createEmailDto: CreateEmailDto) {
-    return this.emailService.create(createEmailDto);
-  }
-
-  @Get()
-  findAll() {
-    return this.emailService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.emailService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateEmailDto: UpdateEmailDto) {
-    return this.emailService.update(+id, updateEmailDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.emailService.remove(+id);
+  @Post('send-email')
+  async sendEmail() {
+    await this.emailService.sendMail({
+      to: 'destinatario@example.com',
+      subject: 'Assunto do E-mail',
+      html: '<h1>Olá!</h1><p>Este é um e-mail de teste.</p>',
+    });
+    return { message: 'E-mail enviado com sucesso' };
   }
 }
