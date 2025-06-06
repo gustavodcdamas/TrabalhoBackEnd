@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Query, HttpException, HttpStatus, UseInterceptors, ConflictException, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
+import { CreateAdminDto, RegisterDto } from './dto/register.dto';
 import { UserEntity } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -9,6 +9,10 @@ import { DeleteAccountDto } from './dto/delete-account.dto';
 import { RequestResetPasswordDto, ResetPasswordDto } from './dto/request-reset-password.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { LoginResponseInterceptor } from 'src/common/interceptors/login.interceptor';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { RolesGuard } from 'src/guards/roles.guard';
+import { Roles } from './decorators/roles.decorator';
+import { UserRole } from '../users/enums/user-role.enum';
 
 @Controller('api/auth')
 export class AuthController {
@@ -49,6 +53,17 @@ export class AuthController {
       }
       throw new BadRequestException(error.message);
     }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Post('register-admin')
+  async registerAdmin(@Body() createAdminDto: CreateAdminDto) {
+    const admin = await this.authService.registerAdmin(createAdminDto);
+    return {
+      message: 'Administrador cadastrado com sucesso',
+      userId: admin.id
+    };
   }
 
   @Get('verify-email')

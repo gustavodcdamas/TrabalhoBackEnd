@@ -9,6 +9,7 @@ import * as bcrypt from 'bcrypt';
 import { MailService } from '../email/mail.service';
 import { ConfigService } from '@nestjs/config';
 import { LoginResponseDto } from './dto/login-response.dto';
+import { UserRole } from '../users/enums/user-role.enum';
 
 @Injectable()
 export class AuthService {
@@ -163,7 +164,33 @@ export class AuthService {
     user.firstName = registerDto.firstName;
     user.lastName = registerDto.lastName;
     user.password = registerDto.password;
-    user.role = registerDto.role;
+    user.role = UserRole.CLIENT;
+
+    if (!user.emailVerificationToken) {
+      throw new InternalServerErrorException('Erro ao gerar token de verificação');
+    }
+
+    try {
+      await this.mailService.sendVerificationEmail(
+        user.email, 
+        user.emailVerificationToken
+      );
+      
+      const { password, emailVerificationToken, ...result } = user;
+      return result;
+    } catch (error) {
+      await this.userService.removeByEmail(user.email);
+      throw new BadRequestException('Falha ao enviar email de verificação');
+    }
+  }
+
+  async registerAdmin(registerDto: RegisterDto) {
+    const user = await this.userService.create(registerDto);
+    user.email = registerDto.email;
+    user.firstName = registerDto.firstName;
+    user.lastName = registerDto.lastName;
+    user.password = registerDto.password;
+    user.role = UserRole.ADMIN;
 
     if (!user.emailVerificationToken) {
       throw new InternalServerErrorException('Erro ao gerar token de verificação');

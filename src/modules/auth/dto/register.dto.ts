@@ -1,5 +1,5 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Length, Matches, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsIn, IsNotEmpty, IsOptional, IsString, Length, Matches, MinLength } from 'class-validator';
 import {
   BeforeInsert,
   Column,
@@ -39,4 +39,10 @@ export class RegisterDto {
   @IsOptional()
   @IsEnum(UserRole)
   role: UserRole = UserRole.CLIENT; // Valor padrão
+}
+
+export class CreateAdminDto extends RegisterDto {
+  @IsEnum(UserRole)
+  @IsIn([UserRole.ADMIN, UserRole.SUPER_ADMIN])
+  role: UserRole = UserRole.ADMIN;
 }
