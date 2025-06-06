@@ -1,0 +1,48 @@
+version: '3.8'
+services:
+  # backend:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: agency-backend
+  #   ports:
+  #     - "3535:3535"
+  #   environment:
+  #     - NODE_ENV=development
+  #     - DB_HOST=postgres
+  #     - DB_PORT=5432
+  #     - DB_USERNAME=postgres
+  #     - DB_PASSWORD=postgres
+  #     - DB_DATABASE=agency_db
+  #     - REDIS_HOST=redis
+  #     - REDIS_PORT=6379
+  #   volumes:
+  #     - ./uploads:/usr/src/app/uploads
+  #   depends_on:
+  #     - postgres
+  #     - redis
+  redis:
+    image: redis:latest
+    container_name: redis
+    env_file: .env
+    command: redis-server --requirepass StrongPassword!
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  postgres:
+    image: postgres
+    env_file: .env
+    container_name: postgres
+    restart: always
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  redis_data:
+  pg_data:
+
