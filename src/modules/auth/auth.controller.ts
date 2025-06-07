@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Query, HttpException, HttpStatus, UseInterceptors, ConflictException, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Query, HttpException, HttpStatus, UseInterceptors, ConflictException, BadRequestException, UnauthorizedException, InternalServerErrorException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { CreateAdminDto, RegisterDto } from './dto/register.dto';
@@ -25,18 +25,12 @@ export class AuthController {
   @UseInterceptors(LoginResponseInterceptor)
   async login(@Body() loginDto: LoginDto) {
     const user = await this.authService.validateUser(loginDto.email, loginDto.password);
+    
     if (!user) {
-      throw new HttpException('Credenciais inválidas', HttpStatus.UNAUTHORIZED);
+      throw new UnauthorizedException('Credenciais inválidas');
     }
 
-    // Obter o usuário COMPLETO do banco de dados
-    const fullUser = await this.userService.findOneByEmail(user.email);
-    if (!fullUser?.isEmailVerified) {
-      throw new HttpException('E-mail não verificado', HttpStatus.FORBIDDEN);
-    }
-
-    // Passar o usuário completo para o authService.login
-    return this.authService.login(fullUser);
+    return this.authService.login(user);
   }
 
   @Post('register')
@@ -98,6 +92,16 @@ export class AuthController {
   @Post('reset-password')
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.token, dto.newPassword);
+  }
+
+  @Get('check-email')
+  async checkEmail(@Query('email') email: string) {
+    try {
+      const user = await this.userService.findOneByEmail(email);
+      return { exists: !!user };
+    } catch (error) {
+      throw new InternalServerErrorException('Erro ao verificar e-mail');
+    }
   }
 
 }

@@ -6,5 +6,6 @@ export class LoginResponseDto {
     role: string;
     isSuperAdmin: boolean;
     isAdmin: boolean;
+    isClient: boolean;
   };
 }

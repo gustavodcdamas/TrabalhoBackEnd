@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Get, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { UserEntity } from '../users/entities/user.entity';
@@ -59,58 +59,73 @@ export class AuthService {
     return true;
   }
 
-  async validateUser(email: string, pass: string): Promise<{ id: string; email: string } | null> {
-    const user = await this.userService.findOneByEmail(email, true); // true para incluir senha
+  async validateUser(email: string, pass: string): Promise<UserEntity | null> {
+    console.log(`[AuthService] Validando usuário: ${email}`);
+    const user = await this.userService.findOneByEmail(email, true);
     
     if (!user) {
-      await new Promise(resolve => setTimeout(resolve, 100));
+      console.log('[AuthService] Usuário não encontrado');
+      await this.simulateDelay();
       return null;
     }
 
-    const dummyHash = '$2b$10$dummyhashdummyhashdummyhahaha';
-    const match = await bcrypt.compare(pass, user.password || dummyHash);
+    console.log('[AuthService] Comparando senhas...');
+    console.log(`[AuthService] Senha fornecida: ${pass}`);
+    console.log(`[AuthService] Hash armazenado: ${user.password}`);
+
+    const isPasswordValid = await bcrypt.compare(pass, user.password);
     
-    if (!match) {
-      await new Promise(resolve => setTimeout(resolve, 100));
+    if (!isPasswordValid) {
+      console.log('[AuthService] Senha inválida - Comparação falhou');
+      await this.simulateDelay();
       return null;
     }
-    
-    return { id: user.id, email: user.email };
+
+    console.log('[AuthService] Credenciais válidas');
+    return user;
   }
 
-  async login(user: { email: string; id: string }): Promise<LoginResponseDto> {
-    // Obter o usuário completo do banco de dados
-    const fullUser = await this.userService.findOne(user.id);
-    
-    if (!fullUser) {
-      throw new NotFoundException('Usuário não encontrado');
-    }
+  private async simulateDelay(): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
 
-    // Verificar se o e-mail está verificado
-    if (!fullUser.isEmailVerified) {
+  async login(user: UserEntity): Promise<LoginResponseDto> {
+    console.log(`[AuthService] Login para usuário: ${user.email}`);
+    
+    if (!user.isEmailVerified) {
+      console.log('[AuthService] E-mail não verificado');
       throw new BadRequestException('E-mail não verificado');
     }
 
-    // Criar payload com todas as informações necessárias
-    const payload = {
-      email: user.email,
-      sub: user.id,
-      role: fullUser.role,          // Adicione esta linha
-      isSuperAdmin: fullUser.isSuperAdmin, // Adicione esta linha
-      isAdmin: fullUser.isAdmin,     // Adicione esta linha
-      isClient: fullUser.isClient
-    };
+    try {
+      const payload = {
+        email: user.email,
+        sub: user.id,
+        role: user.role,
+        isSuperAdmin: user.isSuperAdmin,
+        isAdmin: user.isAdmin,
+        isClient: user.isClient
+      };
 
-    return {
-      access_token: this.jwtService.sign(payload),
-      user: {                       // Retorne também os dados do usuário
-        id: fullUser.id,
-        email: fullUser.email,
-        role: fullUser.role,
-        isSuperAdmin: fullUser.isSuperAdmin,
-        isAdmin: fullUser.isAdmin,
-      }
-    };
+      console.log('[AuthService] Criando JWT...');
+      const token = this.jwtService.sign(payload);
+      console.log('[AuthService] JWT criado com sucesso');
+
+      return {
+        access_token: token,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          isSuperAdmin: user.isSuperAdmin,
+          isAdmin: user.isAdmin,
+          isClient: user.isClient
+        }
+      };
+    } catch (error) {
+      console.error('[AuthService] Erro ao gerar JWT:', error);
+      throw new InternalServerErrorException('Erro durante o login');
+    }
   }
 
   async requestPasswordReset(email: string) {

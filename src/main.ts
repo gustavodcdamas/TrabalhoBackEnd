@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe, Req, Res, Get, Controller } from '@nestjs/common';
+import { ValidationPipe, Req, Res, Get, Controller, Catch, ExceptionFilter, ArgumentsHost } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config'
 import * as compression from 'compression';
 import helmet from 'helmet';
@@ -25,6 +25,8 @@ async function bootstrap() {
 
   //customizando porta de start do nest
   const port = configService.get<number>('NEST_PORT') || 3333;
+
+  app.use(cookieParser());
 
   //inicializando o banco
   const databaseInitializer = app.get(DatabaseInitializer);
@@ -59,83 +61,7 @@ async function bootstrap() {
     titulo: 'text',
   };
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-      forbidNonWhitelisted: true,
-    }),
-    new SanitizePipe(sanitizeConfig),
-  );
-
-  app.use(cookieParser());
-
-  app.use(compression());
-
-  //inicializando protecao ocntra csrf
-  app.use(helmet({
-    contentSecurityPolicy: true,
-    frameguard: {
-      action: 'deny'
-    },
-    referrerPolicy: {
-      policy: 'no-referrer',
-    },
-  }));
-
-  //inicializando protecao contra xss
-  app.use(
-    helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          scriptSrc: ["'self'", "'unsafe-inline'", "trusted-cdn.com"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          //imgSrc: ["'self'", "data:", "cdn.example.com"],
-          //connectSrc: ["'self'", "api.example.com"],
-          fontSrc: ["'self'", "fonts.gstatic.com", "fonts.googleapis.com"],
-          objectSrc: ["'none'"],
-          upgradeInsecureRequests: [],
-        },
-      },
-      crossOriginEmbedderPolicy: true, // Melhora segurança contra ataques Spectre
-      crossOriginResourcePolicy: { policy: "same-site" }, // Evita carregamento cruzado não autorizado
-      crossOriginOpenerPolicy: { policy: "same-origin" }, // Protege contra vazamentos de dados
-      referrerPolicy: { policy: "no-referrer-when-downgrade" }, // Controla vazamento de URLs
-      strictTransportSecurity: { maxAge: 63072000, includeSubDomains: true }, // HSTS (HTTPS obrigatório)
-      xFrameOptions: { action: "deny" }, // Evita clickjacking
-      xXssProtection: false, // Substituído pelo CSP moderno
-      xContentTypeOptions: true, // Evita MIME-sniffing
-      xPoweredBy: false, // Remove header "X-Powered-By" (reduz info vazada)
-    })
-  );
-
-  // Configuração do CSRF
-  const csrfProtection = csurf({
-    cookie: {
-      key: '_csrf',
-      path: '/',
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 3600 // 1 hora
-    }
-  });
-
-  app.use(
-    helmet.hidePoweredBy(),  // Hides the X-Powered-By header
-    helmet.frameguard({ action: 'sameorigin' }),  // Allows framing only from the same origin
-    helmet.noSniff(),  // Prevents browsers from following the declared MIME types
-  );
-
   const frontEndUrl = configService.get<string>('FRONTEND_URL') || 'http://localhost:4200' ;
-  
-  // CORS
-  app.enableCors({
-    origin: frontEndUrl,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    credentials: true,
-  });
 
   // Cria a store do Redis com express-session
   const RedisStore = connectRedis(session);
@@ -177,19 +103,116 @@ async function bootstrap() {
     })
   );
 
-  app.use(csurf({
+  // CORS
+  app.enableCors({
+    origin: frontEndUrl,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'X-CSRF-TOKEN']
+  });
+
+  // Configuração do CSRF
+  const csrfProtection = csurf({
     cookie: {
+      key: '_csrf',
+      path: '/',
       httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      secure: process.env.NODE_ENV === 'production'
+      maxAge: 3600 // 1 hora
     }
-  }));
+  });
 
   app.use('/api', csrfProtection);
+
+  @Controller()
+  class CsrfController {
+    @Get('api/csrf-token')
+    getCsrfToken(@Req() req: Request) {
+      return { csrfToken: req.csrfToken() };
+    }
+  }
+  app.useGlobalFilters(new CsrfExceptionFilter());
   //app.setGlobalPrefix('api');
+
+  app.use(
+    helmet.hidePoweredBy(),  // Hides the X-Powered-By header
+    helmet.frameguard({ action: 'sameorigin' }),  // Allows framing only from the same origin
+    helmet.noSniff(),  // Prevents browsers from following the declared MIME types
+  );
+
+  //contra xss
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "trusted-cdn.com"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          //imgSrc: ["'self'", "data:", "cdn.example.com"],
+          //connectSrc: ["'self'", "api.example.com"],
+          fontSrc: ["'self'", "fonts.gstatic.com", "fonts.googleapis.com"],
+          objectSrc: ["'none'"],
+          upgradeInsecureRequests: [],
+        },
+      },
+      crossOriginEmbedderPolicy: true, // Melhora segurança contra ataques Spectre
+      crossOriginResourcePolicy: { policy: "same-site" }, // Evita carregamento cruzado não autorizado
+      crossOriginOpenerPolicy: { policy: "same-origin" }, // Protege contra vazamentos de dados
+      referrerPolicy: { policy: "no-referrer-when-downgrade" }, // Controla vazamento de URLs
+      strictTransportSecurity: { maxAge: 63072000, includeSubDomains: true }, // HSTS (HTTPS obrigatório)
+      xFrameOptions: { action: "deny" }, // Evita clickjacking
+      xXssProtection: false, // Substituído pelo CSP moderno
+      xContentTypeOptions: true, // Evita MIME-sniffing
+      xPoweredBy: false, // Remove header "X-Powered-By" (reduz info vazada)
+    })
+  );
+
+  //inicializando protecao ocntra csrf
+  app.use(helmet({
+    contentSecurityPolicy: true,
+    frameguard: {
+      action: 'deny'
+    },
+    referrerPolicy: {
+      policy: 'no-referrer',
+    },
+  }));
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+    new SanitizePipe(sanitizeConfig),
+  );
+
+  app.use(compression());
 
   await app.listen(port);
   console.log(`Application is running on: http://localhost:${port}`);
+}
+
+@Catch()
+class CsrfExceptionFilter implements ExceptionFilter {
+  catch(exception: any, host: ArgumentsHost) {
+    const ctx = host.switchToHttp();
+    const response = ctx.getResponse<Response>();
+    
+    if (exception.code === 'EBADCSRFTOKEN') {
+      response.status(403).json({
+        statusCode: 403,
+        message: 'Invalid CSRF token'
+      });
+      return;
+    }
+    
+    response.status(500).json({
+      statusCode: 500,
+      message: 'Internal server error'
+    });
+  }
 }
 
 bootstrap();

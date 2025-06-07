@@ -27,10 +27,10 @@ export class UsersService {
 
     const user = this.usersRepository.create({
       ...createUserDto,
-      password: await bcrypt.hash(createUserDto.password, 15),
+      password: createUserDto.password,
       isEmailVerified: false,
       emailVerificationToken: token,
-      isAdmin: true,
+      isClient: true,
     });
 
     return this.usersRepository.save(user);
@@ -146,25 +146,19 @@ export class UsersService {
   }
 
   //metodo para buscar usuario por email
-  async findOneByEmail(email: string, withPassword: boolean = false): Promise<UserEntity | null> {
-    const select: Array<keyof UserEntity> = [
-      'id',
-      'email',
-      'role',
-      'isSuperAdmin',
-      'isAdmin',
-      'isClient',
-      'isEmailVerified'
-    ];
+  async findOneByEmail(email: string, withPassword = false): Promise<UserEntity | null> {
+    console.log(`[UsersService] Buscando usuário por email: ${email}`);
+    const query = this.usersRepository.createQueryBuilder('user')
+      .where('user.email = :email', { email })
+      .andWhere('user.deleted_at IS NULL');
 
     if (withPassword) {
-      select.push('password');
+      query.addSelect('user.password');
     }
 
-    return this.usersRepository.findOne({
-      where: { email },
-      select
-    });
+    const user = await query.getOne();
+    console.log(`[UsersService] Usuário encontrado: ${user ? user.id : 'não encontrado'}`);
+    return user;
   }
 
   //metodo para salvar usuario no banco

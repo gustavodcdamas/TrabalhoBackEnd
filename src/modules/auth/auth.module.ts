@@ -5,7 +5,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { UserEntity } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
 import { UsersModule } from '../users/users.module';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -21,10 +21,13 @@ const jwtSecret = process.env.JWT_SECRET;
     ConfigModule.forRoot(),
     UsersModule,
     PassportModule,
-    JwtModule.register({
-      privateKey: process.env.JWT_SECRET_KEY,
-      secret: jwtSecret,
-      signOptions: { expiresIn: '120s' },
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+        signOptions: { expiresIn: '1d' }, // Tempo mais razoável
+      }),
+      inject: [ConfigService],
     }),
   ],
   controllers: [AuthController],
