@@ -71,16 +71,26 @@ async function bootstrap() {
     host: configService.get<string>('REDIS_HOST'),
     port: configService.get<number>('REDIS_PORT'),
     password: configService.get<string>('REDIS_PASSWORD'),
-    // opcional: adiciona isso se estiver usando TLS (como no Redis Cloud ou AWS ElastiCache com TLS)
-    // tls: {},
+    retryStrategy: (times) => {
+      console.log(`Tentativa ${times} de conexão com Redis`);
+      return Math.min(times * 50, 2000);
+    }
   });
 
   redisClient.on('connect', () => {
-    console.log('✅ ioredis conectado com sucesso!');
+    console.log('✅ Conectado ao Redis com sucesso!');
+  });
+
+  redisClient.on('ready', () => {
+    console.log('✅ Redis pronto para operar');
   });
 
   redisClient.on('error', (err) => {
-    console.error('❌ Erro ao conectar no ioredis:', err);
+    console.error('❌ Erro na conexão Redis:', err);
+  });
+
+  redisClient.on('end', () => {
+    console.log('🔌 Conexão com Redis encerrada');
   });
 
   // Configura express-session com a Redis Store
@@ -90,6 +100,7 @@ async function bootstrap() {
         client: redisClient,
         prefix: 'sess:',
         ttl: configService.get<number>('REDIS_TTL') || 86400, // segundos
+        disableTouch: false
       }),
       secret: configService.get<string>('JWT_SECRET') || 'fallback-secret',
       resave: false,
