@@ -129,7 +129,8 @@ export class UserEntity {
   @UpdateDateColumn()
   updated_at: Date;
 
-  @DeleteDateColumn()
+  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
   deleted_at: Date;
 
   /*@BeforeInsert()

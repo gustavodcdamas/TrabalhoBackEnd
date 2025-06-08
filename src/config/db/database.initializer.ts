@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { UserEntity } from '../../modules/users/entities/user.entity';
+import { UserRole } from 'src/modules/users/enums/user-role.enum';
 
 @Injectable()
 export class DatabaseInitializer {
@@ -33,25 +34,32 @@ export class DatabaseInitializer {
     try {
       const existingSuperAdmin = await this.usersRepository.findOne({
         where: { email: superAdminEmail },
+        withDeleted: true
       });
 
       if (existingSuperAdmin) {
-        this.logger.log('Super admin already exists');
+        existingSuperAdmin.password = await bcrypt.hash(superAdminPassword, 15);
+        existingSuperAdmin.isSuperAdmin = true;
+        existingSuperAdmin.isEmailVerified = true;
+        existingSuperAdmin.isAdmin = true;
+        existingSuperAdmin.isClient = false;
+        existingSuperAdmin.role = UserRole.SUPER_ADMIN;
+        await this.usersRepository.save(existingSuperAdmin);
+        this.logger.log('Super admin updated successfully');
         return;
       }
-
-      const hashedPassword = await bcrypt.hash(superAdminPassword, 10);
       
       // Cria com todos os campos obrigatórios
       const superAdmin = this.usersRepository.create({
         firstName: 'Super', // Adicione valores padrão ou obtenha do config
         lastName: 'Admin',
         email: superAdminEmail,
-        password: hashedPassword,
+        password: await bcrypt.hash(superAdminPassword, 15),
         isSuperAdmin: true,
         isEmailVerified: true, // Importante para admin
         isAdmin: true,
-        isClient: false
+        isClient: false,
+        role: UserRole.SUPER_ADMIN
       });
       
       await this.usersRepository.save(superAdmin);

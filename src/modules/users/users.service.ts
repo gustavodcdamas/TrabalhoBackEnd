@@ -149,11 +149,10 @@ export class UsersService {
   async findOneByEmail(email: string, withPassword = false): Promise<UserEntity | null> {
     console.log(`[UsersService] Buscando usuário por email: ${email}`);
     const query = this.usersRepository.createQueryBuilder('user')
-      .where('user.email = :email', { email })
-      .andWhere('user.deleted_at IS NULL');
+      .where('user.email = :email', { email });
 
     if (withPassword) {
-      query.addSelect('user.password');
+      query.addSelect(['user.password', 'user.isEmailVerified']);
     }
 
     const user = await query.getOne();

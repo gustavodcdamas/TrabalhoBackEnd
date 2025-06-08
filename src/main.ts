@@ -59,6 +59,8 @@ async function bootstrap() {
     lastName: 'text',
     firstName: 'text',
     titulo: 'text',
+    senha: 'none',
+    password: 'none'
   };
 
   const frontEndUrl = configService.get<string>('FRONTEND_URL') || 'http://localhost:4200' ;

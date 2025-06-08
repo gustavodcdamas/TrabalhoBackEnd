@@ -15,6 +15,8 @@ export class SanitizePipe implements PipeTransform {
     address: new RegExp(`[^a-zA-Z0-9${this.escapeRegExp(this.allowedSpecialChars)}\\sÀ-ÿ.,#-]`, 'g')
   };
 
+  private readonly excludedFields = ['senha', 'password', 'confirmarSenha', 'confirmPassword'];
+
   constructor(private fieldConfig: Record<string, string> = {}) {}
 
   transform(value: any) {
@@ -29,9 +31,13 @@ export class SanitizePipe implements PipeTransform {
   }
 
   private sanitizeObject(obj: Record<string, any>): any {
+    console.log('Dados recebidos para sanitização:', obj);
     const result = { ...obj };
     for (const key in result) {
       if (result.hasOwnProperty(key)) {
+        if (this.excludedFields.includes(key.toLowerCase())) {
+          continue;
+        }
         const sanitizerType = this.fieldConfig[key] || this.detectSanitizerType(key, result[key]);
         result[key] = this.sanitizeValue(result[key], sanitizerType);
       }
