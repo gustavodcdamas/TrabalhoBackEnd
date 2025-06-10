@@ -1,110 +1,128 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Inject, NotFoundException, UseGuards, Req, UnauthorizedException, UploadedFile, UseInterceptors, UsePipes, ValidationPipe, Header, Res } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, UploadedFile, UseInterceptors, BadRequestException, InternalServerErrorException, Query } from '@nestjs/common';
 import { InstitucionalService } from './institucional.service';
-import { CreateInstitucionalDto, InstitucionalWithImageDto } from './dto/create-institucional.dto';
+import { CreateInstitucionalDto } from './dto/create-institucional.dto';
 import { UpdateInstitucionalDto } from './dto/update-institucional.dto';
 import { Institucional } from './entities/institucional.entity';
 import { UploadsService } from '../uploads/uploads.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { SanitizePipe } from 'src/common/sanitize.pipe';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { LoggerService } from '../logger/logger.service';
-import { Request, Response } from 'express';
+import { Request } from 'express';
+import { JwtUser } from '../auth/decorators/jwt-user.decorator';
 
+@ApiTags('Institucional')
 @Controller('api/institucional')
 export class InstitucionalController {
   constructor(
-    private readonly InstitucionalService: InstitucionalService,
+    private readonly institucionalService: InstitucionalService,
     private readonly uploadsService: UploadsService,
     private logger: LoggerService,
   ) {}
 
-  @Get('redis-test')
-  async testRedis() {
-    return this.InstitucionalService.checkRedisConnection();
-  }
-
-  @Get('cache-test')
-  async cacheTest() {
-  
-    await this.InstitucionalService.setCacheValue('test_key', 'test_value');
-    
-    const value = await this.InstitucionalService.getCacheValue('test_key');
-    
-    return {
-      set: 'test_value',
-      get: value
-    };
-  }
-
-  @Get('cache-clear')
-  async cacheClear() {
-    await this.InstitucionalService.clearCache();
-    return { message: 'Cache cleared' };
-  }
-
-  @Get('csrf-token')
-  @Header('Cache-Control', 'none')
-  getCsrfToken(@Req() req: Request, @Res() res: Response) {
-    return res.json({ csrfToken: req.csrfToken() });
-  }
+  // ===== ENDPOINTS PRINCIPAIS =====
 
   @Post()
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('image'))
-  @UsePipes(new SanitizePipe({
-    titulo: 'name',       // Sanitiza como nome
-    descricao: 'text',    // Sanitiza como texto
-    icon: 'url',
-    image: 'url'
-  }), new ValidationPipe())
+  @ApiOperation({ summary: 'Criar novo projeto institucional' })
+  @ApiResponse({ status: 201, description: 'Projeto criado com sucesso' })
+  @ApiResponse({ status: 400, description: 'Dados inválidos' })
+  @ApiResponse({ status: 401, description: 'Não autorizado' })
   async create(
-    @Body() createInstitucionalDto: InstitucionalWithImageDto,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() createInstitucionalDto: CreateInstitucionalDto,
     @Req() req: Request,
-    @UploadedFile() file?: Express.Multer.File,
+    @JwtUser() user: any
   ): Promise<Institucional> {
-    if (!req.user) {
-      this.logger.error(
-        'Tentativa de criação de Institucional sem usuário autenticado',
-        '',
-        'InstitucionalController'
-      );
-      throw new UnauthorizedException('Usuário não autenticado');
-    }
-
-    // Agora o TypeScript sabe que req.user tem email e firstName
-    const userEmail = req.user.email;
-    const userName = req.user.firstName;
+    this.logger.log(`Criando novo institucional - User: ${user.id}`, 'InstitucionalController');
     
     try {
-      this.logger.log(
-        `Usuário ${userName} (${userEmail}) iniciando criação de Institucional`,
-        'InstitucionalController'
-      );
-
-      if (file) {
-        this.logger.log(
-          `Processando upload de imagem para novo Institucional`,
-          'InstitucionalController'
-        );
-        const processedImage = await this.uploadsService.processUploadedImage(file);
-        createInstitucionalDto.image = processedImage.medium;
+      // Validações
+      if (!file) {
+        throw new BadRequestException('Arquivo de imagem é obrigatório');
       }
 
-      const result = await this.InstitucionalService.create(createInstitucionalDto);
+      if (!createInstitucionalDto.cliente) {
+        throw new BadRequestException('Cliente é obrigatório');
+      }
+
+      if (!createInstitucionalDto.descricao) {
+        throw new BadRequestException('Descrição é obrigatória');
+      }
+
+      // Processar imagem
+      const processedImage = await this.uploadsService.processUploadedImage(file);
       
-      this.logger.log(
-        `Institucional criado com sucesso por ${userName} (${userEmail}). ID: ${result.id}`,
-        'InstitucionalController'
-      );
+      // Preparar dados
+      const institucionalData = {
+        cliente: createInstitucionalDto.cliente,
+        descricao: createInstitucionalDto.descricao,
+        image: processedImage.medium,
+        titulo: createInstitucionalDto.titulo || `Projeto ${createInstitucionalDto.cliente}`,
+        status: 'ativo'
+      };
+
+      // Salvar
+      const result = await this.institucionalService.create(institucionalData);
       
+      this.logger.log(`Institucional criado com sucesso - ID: ${result.id}`, 'InstitucionalController');
       return result;
-    } catch (error) {
-      this.logger.error(
-        `Falha na criação de Institucional por ${userName} (${userEmail}): ${error.message}`,
-        error.stack,
-        'InstitucionalController'
-      );
+
+    } catch (error: any) {
+      this.logger.error(`Erro ao criar institucional: ${error.message}`, error.stack, 'InstitucionalController');
+      
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      throw new InternalServerErrorException(`Erro interno: ${error.message}`);
+    }
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Listar todos os projetos institucionais' })
+  @ApiResponse({ status: 200, description: 'Lista de projetos' })
+  async findAll(
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number
+  ): Promise<Institucional[]> {
+    try {
+      return await this.institucionalService.findAll({
+        status,
+        search,
+        page: page || 1,
+        limit: limit || 10
+      });
+    } catch (error: any) {
+      this.logger.error(`Erro ao buscar institucionais: ${error.message}`, error.stack, 'InstitucionalController');
+      throw new InternalServerErrorException('Erro ao buscar projetos');
+    }
+  }
+
+  @Get('stats')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Obter estatísticas dos projetos' })
+  async getStats(): Promise<any> {
+    try {
+      return await this.institucionalService.getStats();
+    } catch (error: any) {
+      this.logger.error(`Erro ao buscar estatísticas: ${error.message}`, error.stack, 'InstitucionalController');
+      throw new InternalServerErrorException('Erro ao buscar estatísticas');
+    }
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Buscar projeto por ID' })
+  @ApiResponse({ status: 200, description: 'Projeto encontrado' })
+  @ApiResponse({ status: 404, description: 'Projeto não encontrado' })
+  async findOne(@Param('id') id: string): Promise<Institucional> {
+    try {
+      return await this.institucionalService.findOne(id);
+    } catch (error: any) {
+      this.logger.error(`Erro ao buscar institucional ${id}: ${error.message}`, error.stack, 'InstitucionalController');
       throw error;
     }
   }
@@ -112,47 +130,93 @@ export class InstitucionalController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('image'))
-  @UsePipes(new SanitizePipe({
-    titulo: 'name',
-    descricao: 'text',
-    icon: 'url',
-    image: 'url'
-  }), new ValidationPipe())
+  @ApiOperation({ summary: 'Atualizar projeto institucional' })
+  @ApiResponse({ status: 200, description: 'Projeto atualizado com sucesso' })
+  @ApiResponse({ status: 404, description: 'Projeto não encontrado' })
   async update(
     @Param('id') id: string,
     @Body() updateInstitucionalDto: UpdateInstitucionalDto,
     @UploadedFile() file?: Express.Multer.File,
+    @JwtUser() user?: any
   ): Promise<Institucional> {
+    this.logger.log(`Atualizando institucional ${id} - User: ${user?.id}`, 'InstitucionalController');
+    
     try {
+      // Se há arquivo, processar nova imagem
       if (file) {
         const processedImage = await this.uploadsService.processUploadedImage(file);
         updateInstitucionalDto.image = processedImage.medium;
       }
       
-      return await this.InstitucionalService.update(id, updateInstitucionalDto);
-    } catch (error) {
-      this.logger.error(
-        `Falha na atualização do Institucional ID ${id}: ${error.message}`,
-        error.stack,
-        'InstitucionalController'
-      );
+      const result = await this.institucionalService.update(id, updateInstitucionalDto);
+      
+      this.logger.log(`Institucional ${id} atualizado com sucesso`, 'InstitucionalController');
+      return result;
+      
+    } catch (error: any) {
+      this.logger.error(`Erro ao atualizar institucional ${id}: ${error.message}`, error.stack, 'InstitucionalController');
       throw error;
     }
   }
 
-  @Get()
-  findAll(): Promise<Institucional[]> {
-    return this.InstitucionalService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string): Promise<Institucional> {
-    return this.InstitucionalService.findOne(id);
-  }
-
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
-  remove(@Param('id') id: string): Promise<void> {
-    return this.InstitucionalService.remove(id);
+  @ApiOperation({ summary: 'Excluir projeto institucional' })
+  @ApiResponse({ status: 200, description: 'Projeto excluído com sucesso' })
+  @ApiResponse({ status: 404, description: 'Projeto não encontrado' })
+  async remove(
+    @Param('id') id: string,
+    @JwtUser() user: any
+  ): Promise<{message: string}> {
+    this.logger.log(`Excluindo institucional ${id} - User: ${user.id}`, 'InstitucionalController');
+    
+    try {
+      await this.institucionalService.remove(id, user.id);
+      
+      this.logger.log(`Institucional ${id} excluído com sucesso`, 'InstitucionalController');
+      return { message: 'Projeto excluído com sucesso' };
+      
+    } catch (error: any) {
+      this.logger.error(`Erro ao excluir institucional ${id}: ${error.message}`, error.stack, 'InstitucionalController');
+      throw error;
+    }
+  }
+
+  // ===== ENDPOINTS UTILITÁRIOS =====
+
+  @Post('upload-image')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('image'))
+  @ApiOperation({ summary: 'Upload de imagem independente' })
+  async uploadImage(
+    @UploadedFile() file: Express.Multer.File
+  ): Promise<{url: string}> {
+    try {
+      if (!file) {
+        throw new BadRequestException('Arquivo é obrigatório');
+      }
+
+      const processedImage = await this.uploadsService.processUploadedImage(file);
+      
+      return {
+        url: processedImage.medium
+      };
+      
+    } catch (error: any) {
+      this.logger.error(`Erro no upload de imagem: ${error.message}`, error.stack, 'InstitucionalController');
+      throw new BadRequestException(`Erro no upload: ${error.message}`);
+    }
+  }
+
+  // ===== ENDPOINTS DE DEBUG (REMOVER EM PRODUÇÃO) =====
+
+  @Get('debug/health')
+  async healthCheck(): Promise<any> {
+    return {
+      status: 'OK',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development'
+    };
   }
 }

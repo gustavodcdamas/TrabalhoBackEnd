@@ -4,9 +4,11 @@ import { ServicosController } from './servicos.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Servicos } from './entities/servicos.entity';
 import { UploadsModule } from '../uploads/uploads.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
+    AuthModule,
     TypeOrmModule.forFeature([Servicos]),
     forwardRef(() => UploadsModule),
   ],

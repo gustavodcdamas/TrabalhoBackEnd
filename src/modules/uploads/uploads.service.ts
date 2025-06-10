@@ -1,141 +1,142 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+// uploads.service.ts - VERSÃO CORRIGIDA PARA CAMINHOS
+import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as sharp from 'sharp';
 import * as path from 'path';
-import * as fs from 'fs';
-import { v4 as uuid } from 'uuid';
-import { promisify } from 'util';
-import { UploadConfig } from './upload.config';
-
-const unlinkAsync = promisify(fs.unlink);
-
-interface ProcessedImage {
-  original: string;
-  thumbnail: string;
-  medium: string;
-}
+import * as fs from 'fs/promises';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class UploadsService {
-  constructor() {}
+  private readonly uploadPath: string;
 
-  private async cleanupFiles(files: string[]) {
+  constructor(private configService: ConfigService) {
+    this.uploadPath = path.join(process.cwd(), 'uploads');
+    this.ensureUploadDir();
+  }
+
+  private async ensureUploadDir(): Promise<void> {
     try {
-      await Promise.all(files.map(file => 
-        this.deleteFile(file).catch(error => 
-          console.error(`Erro durante limpeza do arquivo ${file}:`, error)
-      )));
+      await fs.mkdir(this.uploadPath, { recursive: true });
+      console.log('✅ Pasta uploads verificada:', this.uploadPath);
     } catch (error) {
-      console.error('Error during file cleanup:', error);
+      console.error('❌ Erro ao criar pasta uploads:', error);
     }
   }
-  
-  async optimizeImage(buffer: Buffer, options: {
-    format: keyof sharp.FormatEnum,
-    quality: number,
-    width?: number,
-    height?: number,
-    fit?: keyof sharp.FitEnum,
-    stripMetadata?: boolean
-  }) {
-    let processor = sharp(buffer);
 
-    if (options.stripMetadata) {
-      processor = processor.withMetadata();
-    }
-
-    if ('width' in options && 'height' in options && options.width && options.height) {
-      processor = processor.resize(options.width, options.height, {
-        fit: options.fit,
-        withoutEnlargement: true,
+  async processUploadedImage(file: Express.Multer.File): Promise<{
+    original: string;
+    medium: string;
+    thumbnail: string;
+  }> {
+    try {
+      console.log('🔍 Processando imagem:', {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size
       });
-    }
 
-    return processor
-      .toFormat(options.format, { quality: options.quality })
-      .toBuffer();
-  }
-
-  async generateImageMetadata(buffer: Buffer) {
-    const { width, height, format } = await sharp(buffer).metadata();
-    return {
-      dimensions: `${width}x${height}`,
-      format,
-      size: buffer.byteLength,
-      altText: '' // Pode ser preenchido pelo frontend
-    };
-  }
-
-  async processUploadedImage(file: Express.Multer.File): Promise<ProcessedImage> {
-    const fileExt = path.extname(file.originalname).toLowerCase();
-    const fileName = `${uuid()}${fileExt}`;
-    const uploadDir = UploadConfig.uploadDir;
-
-    try {
-      // Caminhos para as diferentes versões
-      const originalPath = path.join(uploadDir, `${fileName}-original${fileExt}`);
-      const thumbnailPath = path.join(uploadDir, `${fileName}-thumbnail${fileExt}`);
-      const mediumPath = path.join(uploadDir, `${fileName}-medium${fileExt}`);
-
-      // Processa cada versão
-      await Promise.all([
-        sharp(file.buffer)
-          .toFormat(fileExt.replace('.', '') as keyof sharp.FormatEnum, 
-          { quality: UploadConfig.imageVersions.original.quality })
-          .toFile(originalPath),
-        
-        sharp(file.buffer)
-          .resize(
-            UploadConfig.imageVersions.thumbnail.width,
-            UploadConfig.imageVersions.thumbnail.height,
-            { fit: UploadConfig.imageVersions.thumbnail.fit }
-          )
-          .toFile(thumbnailPath),
-          
-        sharp(file.buffer)
-          .resize(
-            UploadConfig.imageVersions.medium.width,
-            UploadConfig.imageVersions.medium.height,
-            { fit: UploadConfig.imageVersions.medium.fit }
-          )
-          .toFile(mediumPath)
-      ]);
-
-      return {
-        original: originalPath,
-        thumbnail: thumbnailPath,
-        medium: mediumPath
+      const fileId = uuidv4();
+      const ext = path.extname(file.originalname).toLowerCase();
+      
+      // ✅ NOMES DOS ARQUIVOS (apenas nomes, não caminhos)
+      const fileNames = {
+        original: `${fileId}-original${ext}`,
+        medium: `${fileId}-medium.png`,
+        thumbnail: `${fileId}-thumb.png`
       };
+
+      // ✅ CAMINHOS COMPLETOS PARA SALVAR
+      const filePaths = {
+        original: path.join(this.uploadPath, fileNames.original),
+        medium: path.join(this.uploadPath, fileNames.medium),
+        thumbnail: path.join(this.uploadPath, fileNames.thumbnail)
+      };
+
+      console.log('💾 Salvando arquivos:', fileNames);
+
+      // Salvar original
+      await fs.writeFile(filePaths.original, file.buffer);
+
+      // Criar versão média (800x600)
+      await sharp(file.buffer)
+        .resize(800, 600, { 
+          fit: 'inside', 
+          withoutEnlargement: true 
+        })
+        .png({ quality: 80 })
+        .toFile(filePaths.medium);
+
+      // Criar thumbnail (200x150)
+      await sharp(file.buffer)
+        .resize(200, 150, { 
+          fit: 'cover' 
+        })
+        .png({ quality: 70 })
+        .toFile(filePaths.thumbnail);
+
+      console.log('✅ Imagens processadas com sucesso');
+
+      // ✅ RETORNAR APENAS OS NOMES DOS ARQUIVOS
+      return {
+        original: fileNames.original,
+        medium: fileNames.medium,
+        thumbnail: fileNames.thumbnail
+      };
+
     } catch (error) {
-      await this.cleanupFiles([
-        path.join(uploadDir, `${fileName}-original${fileExt}`),
-        path.join(uploadDir, `${fileName}-thumbnail${fileExt}`),
-        path.join(uploadDir, `${fileName}-medium${fileExt}`)
-      ]);
-      throw new HttpException(
-        `Erro ao processar imagem: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR
-      );
+      console.error('❌ Erro ao processar imagem:', error);
+      throw new Error(`Erro ao processar imagem: ${error.message}`);
     }
   }
 
-  /*private async cleanupFiles(files: string[]) {
-    await Promise.all(files.map(file => 
-      this.deleteFile(file).catch(error => 
-        console.error(`Erro durante limpeza do arquivo ${file}:`, error)
-    )));
-  }*/
-
-  async deleteFile(filePath: string): Promise<void> {
+  async deleteFile(fileName: string): Promise<void> {
     try {
-      if (fs.existsSync(filePath)) {
-        await unlinkAsync(filePath);
+      if (!fileName) return;
+      
+      // ✅ CONSTRUIR CAMINHO CORRETO
+      const filePath = path.join(this.uploadPath, fileName);
+      
+      console.log('🗑️ Tentando deletar:', filePath);
+      
+      try {
+        await fs.access(filePath);
+        await fs.unlink(filePath);
+        console.log(`✅ Arquivo deletado: ${fileName}`);
+      } catch (error) {
+        console.log(`⚠️ Arquivo não encontrado: ${fileName}`);
       }
     } catch (error) {
-      console.error(`Erro ao deletar arquivo ${filePath}:`, error);
-      throw new HttpException(
-        'Erro ao remover arquivo',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      console.error('❌ Erro ao deletar arquivo:', error);
+    }
+  }
+
+  async fileExists(fileName: string): Promise<boolean> {
+    try {
+      const filePath = path.join(this.uploadPath, fileName);
+      await fs.access(filePath);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  getFileUrl(fileName: string): string {
+    if (!fileName) return '';
+    
+    const baseUrl = this.configService.get<string>('BASE_URL') || 'http://localhost:3333';
+    return `${baseUrl}/uploads/${fileName}`;
+  }
+
+  // ✅ MÉTODO PARA LISTAR ARQUIVOS (DEBUG)
+  async listFiles(): Promise<string[]> {
+    try {
+      const files = await fs.readdir(this.uploadPath);
+      console.log('📁 Arquivos na pasta uploads:', files);
+      return files;
+    } catch (error) {
+      console.error('❌ Erro ao listar arquivos:', error);
+      return [];
     }
   }
 }

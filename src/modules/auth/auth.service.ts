@@ -128,6 +128,24 @@ export class AuthService {
     }
   }
 
+  async validateToken(token: string): Promise<UserEntity | null> {
+    try {
+      const payload = this.jwtService.verify(token); // Verifica o token JWT
+      console.log('[AuthService] Token JWT válido:', payload);
+
+      const user = await this.userService.findOneByEmail(payload.email);
+      if (!user) {
+        console.error('[AuthService] Usuário não encontrado para o token:', payload.email);
+        return null;
+      }
+
+      return user;
+    } catch (error) {
+      console.error('[AuthService] Erro ao validar token:', error.message);
+      return null;
+    }
+  }
+
   async requestPasswordReset(email: string) {
     const user = await this.userService.findOneByEmail(email);
     if (!user) {

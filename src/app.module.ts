@@ -1,5 +1,6 @@
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { AppController, CsrfTokenController } from './app.controller';
+// app.module.ts - IMPORT CORRIGIDO
+import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
+import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DbModule } from './config/db/db.module';
 import { UsersModule } from './modules/users/users.module';
@@ -16,14 +17,10 @@ import { UserEntity } from './modules/users/entities/user.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
-import { redisStore } from 'cache-manager-redis-store';
 import { MulterModule } from '@nestjs/platform-express';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
-import { databaseConfig } from './config/db/database.config';
 import { getRedisConfig } from './config/redis/redis.config';
-import { multerOptions } from './modules/uploads/file-upload.utils';
-import { Cache } from 'cache-manager';
 import { LimpezaModule } from './modules/uploads/limpeza/limpeza.module';
 import { LoggerModule } from './modules/logger/logger.module';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -33,11 +30,12 @@ import { LimpezaService } from './modules/uploads/limpeza/limpeza.service';
 import { LoggerService } from './modules/logger/logger.service';
 import { WppModule } from './modules/wpp/wpp.module';
 import { LoggingMiddleware } from './common/middlewares/logging.middleware';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import * as csurf from 'csurf';
-import * as redis from 'redis';
 import { CsrfMiddleware } from './common/middlewares/csrf.middleware';
-
+import { session } from 'passport';
+import csurf from 'csurf';
+import { CsrfController } from './csrf.controller';
+import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
+import { APP_GUARD } from '@nestjs/core';
 
 @Module({
   imports: [
@@ -45,21 +43,42 @@ import { CsrfMiddleware } from './common/middlewares/csrf.middleware';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    
     CacheModule.registerAsync({
       isGlobal: true,
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
-        store: redisStore,
-        ...getRedisConfig(configService),
-        ttl: 60 * 60 * 24, // 24 hours
-      }),
+      useFactory: async (configService: ConfigService) => {
+        try {
+          return await getRedisConfig(configService);
+        } catch (error) {
+          console.warn('⚠️ Fallback para cache em memória:', error.message);
+          return {
+            ttl: 60 * 60 * 24,
+            max: 100,
+          };
+        }
+      },
     }),
-    MulterModule.register(multerOptions),
+    
+    MulterModule.register({
+      dest: './uploads',
+    }),
+    
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'uploads'),
       serveRoot: '/uploads',
+      serveStaticOptions: {
+        index: false,
+        maxAge: '1h',
+        setHeaders: (res, path) => {
+          res.setHeader('Cache-Control', 'public, max-age=3600');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        },
+      },
     }),
+    
     DbModule,
     UsersModule,
     AuthModule,
@@ -69,21 +88,31 @@ import { CsrfMiddleware } from './common/middlewares/csrf.middleware';
     IdvModule,
     LandingModule,
     InstitucionalModule,
-    EmailModule,
     UploadsModule,
     TypeOrmModule.forFeature([UserEntity]),
     LimpezaModule,
     LoggerModule,
     ScheduleModule.forRoot(),
     TypeOrmModule.forFeature([AuditLog]),
+    WppModule,
   ],
-  controllers: [AppController, CsrfTokenController],
-  providers: [AppService, DatabaseInitializer, AuditService, LimpezaService, LoggerService],
+  controllers: [AppController, CsrfController],
+  providers: [AppService, DatabaseInitializer, AuditService, LimpezaService, LoggerService ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
-      .apply(LoggingMiddleware, csurf({ cookie: true }), CsrfMiddleware)
-      .forRoutes('*'); // Aplica a todas as rotas
-  }
+      .apply(LoggingMiddleware)
+      .forRoutes('*');
+      
+    // ✅ APLICAR CSRF MIDDLEWARE APENAS PARA ROTAS PROTEGIDAS
+    consumer
+      .apply(CsrfMiddleware)
+      .exclude(
+        { path: 'api/csrf-token', method: RequestMethod.GET },
+        { path: 'uploads/(.*)', method: RequestMethod.ALL },
+        { path: 'api/docs/(.*)', method: RequestMethod.ALL },
+      )
+      .forRoutes('*');
+    }
 }

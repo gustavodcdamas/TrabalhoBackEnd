@@ -7,12 +7,14 @@ import { LimpezaService } from './limpeza/limpeza.service';
 import { LimpezaModule } from './limpeza/limpeza.module';
 import { criativosService } from '../criativos/criativos.service';
 import { CriativosModule } from '../criativos/criativos.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
     MulterModule.register(multerOptions),
     LimpezaModule,
     CriativosModule,
+    AuthModule
   ],
   controllers: [UploadsController],
   providers: [UploadsService],

@@ -14,9 +14,17 @@ export const multerOptions = {
     fileSize: UploadConfig.maxFileSize,
   },
   fileFilter: (req: any, file: any, cb: any) => {
+    console.log('🔍 Validando arquivo:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size
+    });
+    
     if (UploadConfig.allowedMimeTypes.includes(file.mimetype)) {
+      console.log('✅ Arquivo aceito');
       cb(null, true);
     } else {
+      console.log('❌ Arquivo rejeitado - tipo não suportado');
       cb(
         new HttpException(
           `Tipo de arquivo não suportado. Apenas ${UploadConfig.allowedMimeTypes.join(', ')} são permitidos.`,
@@ -28,7 +36,7 @@ export const multerOptions = {
   },
   storage: diskStorage({
     destination: (req: any, file: any, cb: any) => {
-      const uploadPath = multerConfig.dest;
+      const uploadPath = UploadConfig.uploadDir;
       if (!existsSync(uploadPath)) {
         mkdirSync(uploadPath, { recursive: true });
       }

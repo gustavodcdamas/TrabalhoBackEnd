@@ -6,9 +6,11 @@ import { LoggerModule } from '../logger/logger.module';
 import { UploadsModule } from '../uploads/uploads.module';
 import { Idv } from './entities/idv.entity';
 import { LoggerService } from '../logger/logger.service';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
+    AuthModule,
     TypeOrmModule.forFeature([Idv]),
     forwardRef(() => UploadsModule),
     LoggerModule,

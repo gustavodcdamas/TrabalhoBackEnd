@@ -5,16 +5,16 @@ export class Institucional {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
-  title: string;
+  @Column({ nullable: true }) // Permitir nulo se não for obrigatório
+  titulo: string;
 
   @Column()
   cliente: string;
 
-  @Column()
+  @Column({ nullable: true }) // Este campo pode ser nulo inicialmente
   excluidoPor: string;
 
-  @Column()
+  @Column({ default: 'ativo' }) // Valor padrão
   status: string;
 
   @Column()
@@ -23,12 +23,12 @@ export class Institucional {
   @Column()
   image: string;
 
-  @CreateDateColumn()
-  createdAt: Date;
+  @CreateDateColumn({ name: 'created_at' }) // Mapear para o nome correto da coluna
+  dataCriacao: Date;
 
-  @UpdateDateColumn()
-  updatedAt: Date;
+  @UpdateDateColumn({ name: 'updated_at' }) // Mapear para o nome correto da coluna
+  dataAtualizacao: Date;
 
-  @DeleteDateColumn()
-  deleted_at: Date;
+  @DeleteDateColumn({ name: 'deleted_at' })
+  dataExclusao: Date;
 }
