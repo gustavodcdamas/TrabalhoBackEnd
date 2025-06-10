@@ -7,6 +7,7 @@ import { UploadsModule } from '../uploads/uploads.module';
 import { Idv } from './entities/idv.entity';
 import { LoggerService } from '../logger/logger.service';
 import { AuthModule } from '../auth/auth.module';
+import { RedisModule } from 'src/config/redis/redis.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { AuthModule } from '../auth/auth.module';
     TypeOrmModule.forFeature([Idv]),
     forwardRef(() => UploadsModule),
     LoggerModule,
+    RedisModule
   ],
   controllers: [IdvController],
   providers: [IdvService],

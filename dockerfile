@@ -1,8 +1,10 @@
-FROM node:16-alpine AS build
+# Estágio de construção (builder)
+FROM node:18-alpine AS builder
 
 WORKDIR /usr/src/app
 
 COPY package*.json ./
+COPY prisma ./prisma
 
 RUN npm ci
 
@@ -10,21 +12,25 @@ COPY . .
 
 RUN npm run build
 
-RUN npm prune --production
-
-FROM node:16-alpine
-
-ENV NODE_ENV production
+# Estágio de produção
+FROM node:18-alpine
 
 WORKDIR /usr/src/app
 
-COPY --from=build /usr/src/app/package*.json ./
-COPY --from=build /usr/src/app/node_modules ./node_modules
-COPY --from=build /usr/src/app/dist ./dist
+ENV NODE_ENV production
 
-RUN mkdir -p uploads
+# Copie apenas os arquivos necessários do estágio de construção
+COPY --from=builder /usr/src/app/node_modules ./node_modules
+COPY --from=builder /usr/src/app/package*.json ./
+COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /usr/src/app/prisma ./prisma
 
-EXPOSE 3535
+# Instale apenas produção dependencies se necessário
+RUN npm prune --production
 
-# Start the application
-CMD ["node", "dist/main"]
+# Se você usa Prisma, descomente a linha abaixo
+# RUN npx prisma generate
+
+EXPOSE 3000
+
+CMD ["node", "dist/main.js"]

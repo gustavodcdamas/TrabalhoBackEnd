@@ -219,4 +219,14 @@ export class InstitucionalController {
       environment: process.env.NODE_ENV || 'development'
     };
   }
+
+  @Get('debug/test-cache')
+  async testCache(): Promise<any> {
+    return await this.institucionalService.testCache();
+  }
+
+  @Get('debug/redis-connection')
+  async testRedisConnection(): Promise<any> {
+    return await this.institucionalService.testRedisConnection();
+  }
 }

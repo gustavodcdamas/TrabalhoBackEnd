@@ -1,26 +1,32 @@
-// redis.config.ts - VERSÃO CORRIGIDA
+// src/config/redis/redis.config.ts - VERSÃO CORRIGIDA
 import { CacheModuleOptions } from '@nestjs/cache-manager';
 import { ConfigService } from '@nestjs/config';
-import { redisStore } from 'cache-manager-redis-store';
 
 export const getRedisConfig = async (
   configService: ConfigService,
 ): Promise<CacheModuleOptions> => {
   try {
-    const store = await redisStore({
-      socket: {
-        host: configService.get('REDIS_HOST') || 'localhost',
-        port: configService.get<number>('REDIS_PORT') || 6379,
-        password: configService.get<string>('REDIS_PASSWORD'),
-      },
+    console.log('🔧 Configurando Redis...');
+    
+    // ✅ CONFIGURAÇÃO SIMPLES PARA VERSÕES COMPATÍVEIS
+    const config = {
+      store: require('cache-manager-redis-store'),
+      host: configService.get('REDIS_HOST') || 'localhost',
+      port: configService.get<number>('REDIS_PORT') || 6379,
+      password: configService.get<string>('REDIS_PASSWORD'), // ✅ Aqui está correto
       ttl: 60 * 60 * 24, // 24 horas
+      max: 1000,
+      db: 0,
+      keyPrefix: 'nest-cache:',
+    };
+
+    console.log('✅ Redis configurado:', {
+      host: config.host,
+      port: config.port,
+      hasPassword: !!config.password
     });
 
-    return {
-      store,
-      ttl: 60 * 60 * 24,
-      max: 1000, // máximo de itens no cache
-    };
+    return config;
   } catch (error) {
     console.error('❌ Erro na configuração Redis:', error);
     // Fallback para cache em memória

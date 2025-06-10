@@ -1,4 +1,4 @@
-// app.module.ts - IMPORT CORRIGIDO
+// app.module.ts - VERSÃO CORRIGIDA
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -16,11 +16,9 @@ import { DatabaseInitializer } from './config/db/database.initializer';
 import { UserEntity } from './modules/users/entities/user.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { CacheModule } from '@nestjs/cache-manager';
 import { MulterModule } from '@nestjs/platform-express';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
-import { getRedisConfig } from './config/redis/redis.config';
 import { LimpezaModule } from './modules/uploads/limpeza/limpeza.module';
 import { LoggerModule } from './modules/logger/logger.module';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -31,11 +29,10 @@ import { LoggerService } from './modules/logger/logger.service';
 import { WppModule } from './modules/wpp/wpp.module';
 import { LoggingMiddleware } from './common/middlewares/logging.middleware';
 import { CsrfMiddleware } from './common/middlewares/csrf.middleware';
-import { session } from 'passport';
-import csurf from 'csurf';
 import { CsrfController } from './csrf.controller';
-import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
-import { APP_GUARD } from '@nestjs/core';
+import { RedisService } from 'src/config/redis/redis.service';
+import { RedisModule } from 'src/config/redis/redis.module';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
@@ -43,23 +40,14 @@ import { APP_GUARD } from '@nestjs/core';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    
-    CacheModule.registerAsync({
+
+    CacheModule.register({
       isGlobal: true,
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => {
-        try {
-          return await getRedisConfig(configService);
-        } catch (error) {
-          console.warn('⚠️ Fallback para cache em memória:', error.message);
-          return {
-            ttl: 60 * 60 * 24,
-            max: 100,
-          };
-        }
-      },
+      ttl: 60 * 60 * 24 * 1000,
+      max: 1000,
     }),
+
+    RedisModule,
     
     MulterModule.register({
       dest: './uploads',
@@ -97,7 +85,7 @@ import { APP_GUARD } from '@nestjs/core';
     WppModule,
   ],
   controllers: [AppController, CsrfController],
-  providers: [AppService, DatabaseInitializer, AuditService, LimpezaService, LoggerService ],
+  providers: [AppService, DatabaseInitializer, AuditService, LimpezaService, LoggerService, RedisService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
@@ -105,7 +93,6 @@ export class AppModule implements NestModule {
       .apply(LoggingMiddleware)
       .forRoutes('*');
       
-    // ✅ APLICAR CSRF MIDDLEWARE APENAS PARA ROTAS PROTEGIDAS
     consumer
       .apply(CsrfMiddleware)
       .exclude(
@@ -114,5 +101,5 @@ export class AppModule implements NestModule {
         { path: 'api/docs/(.*)', method: RequestMethod.ALL },
       )
       .forRoutes('*');
-    }
+  }
 }

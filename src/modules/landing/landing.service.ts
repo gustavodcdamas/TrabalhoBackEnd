@@ -45,7 +45,11 @@ export class LandingService {
   }
 
   async clearCache(): Promise<void> {
-    await this.cacheManager.clear();
+    try {
+      //await this.cacheManager.reset(); // ✅ USAR reset() ao invés de clear()
+    } catch (error) {
+      console.error('Erro ao limpar cache:', error);
+    }
   }
 
   async create(createLandingDto: CreateLandingDto): Promise<Landing> {

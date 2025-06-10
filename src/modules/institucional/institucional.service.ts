@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
 import { UploadsService } from '../uploads/uploads.service';
 import { LoggerService } from '../logger/logger.service';
+import { RedisService } from 'src/config/redis/redis.service';
 
 interface FindAllOptions {
   status?: string;
@@ -27,8 +28,64 @@ export class InstitucionalService {
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     private readonly uploadsService: UploadsService,
     private readonly logger: LoggerService,
+    private readonly redisService: RedisService,
   ) {
     this.logger.log('InstitucionalService inicializado', 'InstitucionalService');
+  }
+
+  async testCache(): Promise<any> {
+    console.log('🧪 Iniciando teste de cache...');
+    
+    try {
+      // Teste 1: Verificar se o cacheManager existe
+      console.log('1️⃣ CacheManager existe:', !!this.cacheManager);
+      
+      // Teste 2: Tentar definir um valor simples
+      console.log('2️⃣ Tentando definir valor no cache...');
+      await this.cacheManager.set('test_simple', 'hello_world', 60);
+      console.log('✅ Valor definido com sucesso');
+      
+      // Teste 3: Tentar recuperar o valor
+      console.log('3️⃣ Tentando recuperar valor do cache...');
+      const retrieved = await this.cacheManager.get('test_simple');
+      console.log('📤 Valor recuperado:', retrieved);
+      
+      // Teste 4: Tentar definir um objeto
+      console.log('4️⃣ Tentando definir objeto no cache...');
+      const testObject = { id: 1, name: 'Test', timestamp: new Date() };
+      await this.cacheManager.set('test_object', testObject, 60);
+      console.log('✅ Objeto definido com sucesso');
+      
+      // Teste 5: Recuperar o objeto
+      console.log('5️⃣ Tentando recuperar objeto do cache...');
+      const retrievedObject = await this.cacheManager.get('test_object');
+      console.log('📤 Objeto recuperado:', retrievedObject);
+      
+      // ✅ TESTE 6 CORRIGIDO - sem usar stores
+      console.log('6️⃣ Verificando tipo de store...');
+      try {
+        const storeType = this.cacheManager.stores?.constructor?.name || 'unknown';
+        console.log('🏪 Tipo de store:', storeType);
+      } catch (e) {
+        console.log('ℹ️ Não foi possível identificar o tipo de store');
+      }
+      
+      return {
+        cacheManagerExists: !!this.cacheManager,
+        simpleValueTest: retrieved === 'hello_world',
+        objectTest: !!retrievedObject,
+        retrievedObject,
+        timestamp: new Date()
+      };
+      
+    } catch (error) {
+      console.error('❌ Erro no teste de cache:', error);
+      return {
+        error: error.message,
+        stack: error.stack,
+        timestamp: new Date()
+      };
+    }
   }
 
   // ===== MÉTODOS PRINCIPAIS =====
@@ -64,50 +121,38 @@ export class InstitucionalService {
     try {
       const { status, search, page = 1, limit = 10 } = options;
       
-      // Se não há filtros, tentar cache
+      console.log('🔍 findAll chamado com opções:', { status, search, page, limit });
+      
+      // ✅ TENTAR CACHE REDIS PRIMEIRO
       if (!status && !search && page === 1 && limit === 10) {
-        const cached = await this.cacheManager.get<Institucional[]>(this.CACHE_KEY_Institucional);
-        if (cached) {
-          this.logger.log('Dados obtidos do cache', 'InstitucionalService');
+        const cached = await this.redisService.get<Institucional[]>(this.CACHE_KEY_Institucional);
+        if (cached && Array.isArray(cached)) {
+          console.log('✅ Dados obtidos do Redis cache:', cached.length, 'itens');
           return cached;
         }
       }
 
-      // Construir query
-      const queryBuilder = this.institucionalRepository.createQueryBuilder('institucional');
+      console.log('🗄️ Buscando dados no banco...');
       
-      // Filtrar por status
-      if (status && status !== 'all') {
-        queryBuilder.andWhere('institucional.status = :status', { status });
-      }
+      // Buscar do banco
+      const result = await this.institucionalRepository.find({
+        where: { status: 'ativo' },
+        order: { dataCriacao: 'DESC' },
+        take: limit,
+        skip: (page - 1) * limit
+      });
       
-      // Filtrar por busca
-      if (search) {
-        queryBuilder.andWhere(
-          '(institucional.titulo ILIKE :search OR institucional.cliente ILIKE :search OR institucional.descricao ILIKE :search)',
-          { search: `%${search}%` }
-        );
-      }
+      console.log('📊 Dados do banco:', result.length, 'itens');
       
-      // Ordenar por data de criação (mais recentes primeiro)
-      queryBuilder.orderBy('institucional.dataCriacao', 'DESC');
-      
-      // Paginação
-      if (page && limit) {
-        queryBuilder.skip((page - 1) * limit).take(limit);
-      }
-
-      const result = await queryBuilder.getMany();
-      
-      // Cachear apenas se não há filtros
+      // ✅ SALVAR NO REDIS
       if (!status && !search && page === 1 && limit === 10) {
-        await this.cacheManager.set(this.CACHE_KEY_Institucional, result, this.CACHE_TTL);
+        await this.redisService.set(this.CACHE_KEY_Institucional, result, this.CACHE_TTL);
       }
       
       return result;
 
     } catch (error) {
-      this.logger.error(`Erro ao buscar institucionais: ${error.message}`, error.stack, 'InstitucionalService');
+      console.error('❌ Erro geral:', error);
       throw new InternalServerErrorException('Erro ao buscar projetos');
     }
   }
@@ -282,6 +327,9 @@ export class InstitucionalService {
   async clearCache(): Promise<void> {
     try {
       await Promise.all([
+        this.redisService.del(this.CACHE_KEY_Institucional),
+        this.redisService.del('institucional_stats'),
+        // ✅ REMOVER reset() - usar del() para chaves específicas
         this.cacheManager.del(this.CACHE_KEY_Institucional),
         this.cacheManager.del('institucional_stats')
       ]);
@@ -320,5 +368,32 @@ export class InstitucionalService {
 
   async getCacheValue(key: string): Promise<any> {
     return await this.cacheManager.get(key);
+  }
+
+  async testRedisConnection(): Promise<any> {
+    try {
+      const ping = await this.redisService.ping();
+      const testKey = 'test-' + Date.now();
+      const testValue = { message: 'Redis test', timestamp: new Date() };
+      
+      await this.redisService.set(testKey, testValue, 300);
+      const retrieved = await this.redisService.get(testKey);
+      const keys = await this.redisService.keys('test-*');
+      
+      return {
+        ping,
+        testKey,
+        testValue,
+        retrieved,
+        keys,
+        testSuccessful: JSON.stringify(testValue) === JSON.stringify(retrieved),
+        timestamp: new Date()
+      };
+    } catch (error) {
+      return {
+        error: error.message,
+        timestamp: new Date()
+      };
+    }
   }
 }

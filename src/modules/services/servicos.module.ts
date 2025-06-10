@@ -5,12 +5,16 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Servicos } from './entities/servicos.entity';
 import { UploadsModule } from '../uploads/uploads.module';
 import { AuthModule } from '../auth/auth.module';
+import { RedisModule } from 'src/config/redis/redis.module';
+import { LoggerModule } from '../logger/logger.module';
 
 @Module({
   imports: [
+    RedisModule,
     AuthModule,
     TypeOrmModule.forFeature([Servicos]),
     forwardRef(() => UploadsModule),
+    LoggerModule,
   ],
   controllers: [ServicosController],
   providers: [ServicosService],

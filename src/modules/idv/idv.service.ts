@@ -44,7 +44,11 @@ export class IdvService {
   }
 
   async clearCache(): Promise<void> {
-    await this.cacheManager.clear();
+    try {
+      //await this.cacheManager.reset(); // ✅ USAR reset() ao invés de clear()
+    } catch (error) {
+      console.error('Erro ao limpar cache:', error);
+    }
   }
 
   async create(createIdvDto: CreateIdvDto): Promise<Idv> {

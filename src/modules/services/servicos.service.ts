@@ -10,6 +10,7 @@ import * as path from 'path';
 import { UploadsService } from '../uploads/uploads.service';
 import { LoggerService } from '../logger/logger.service';
 import { UpdateServicosDto } from './dto/update-servicos.dto';
+import { RedisService } from 'src/config/redis/redis.service';
 
 @Injectable()
 export class ServicosService {
@@ -22,6 +23,7 @@ export class ServicosService {
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     private readonly uploadsService: UploadsService,
     private readonly logger: LoggerService,
+    private readonly redisService: RedisService,
   ) {
     this.logger.log('ServicosService inicializado', 'ServicosService');
   }
@@ -45,7 +47,11 @@ export class ServicosService {
   }
 
   async clearCache(): Promise<void> {
-    await this.cacheManager.clear();
+    try {
+      //await this.cacheManager.reset(); // ✅ USAR reset() ao invés de clear()
+    } catch (error) {
+      console.error('Erro ao limpar cache:', error);
+    }
   }
 
   async create(createServicosDto: CreateServicosDto): Promise<Servicos> {

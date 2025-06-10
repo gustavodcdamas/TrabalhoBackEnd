@@ -6,6 +6,7 @@ import { Landing } from './entities/landing.entity';
 import { UploadsModule } from '../uploads/uploads.module';
 import { LoggerModule } from '../logger/logger.module';
 import { AuthModule } from '../auth/auth.module';
+import { RedisModule } from 'src/config/redis/redis.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { AuthModule } from '../auth/auth.module';
     TypeOrmModule.forFeature([Landing]),
     forwardRef(() => UploadsModule),
     LoggerModule,
+    RedisModule,
   ],
   controllers: [LandingController],
   providers: [LandingService],
