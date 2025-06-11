@@ -20,4 +20,8 @@ import { LoggerModule } from '../logger/logger.module';
   providers: [ServicosService],
   exports: [ServicosService],
 })
-export class ServicesModule {}
+export class ServicesModule {
+    constructor() {
+    console.log('📦 ServicosModule inicializado');
+  }
+}

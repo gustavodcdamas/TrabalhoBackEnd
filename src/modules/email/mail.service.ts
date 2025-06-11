@@ -11,11 +11,14 @@ export class MailService {
   constructor(private configService: ConfigService) {
     try {
       this.transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: this.configService.get<string>('SMTP_HOST'),
+        port: this.configService.get<number>('SMTP_PORT'),
+        secure: this.configService.get<boolean>('SMTP_SECURE'),
         auth: {
-          user: this.configService.get<string>('EMAIL_USER'),
-          pass: this.configService.get<string>('EMAIL_APP_PASS'),
+          user: this.configService.get<string>('SMTP_USER'),
+          pass: this.configService.get<string>('SMTP_PASS'),
         },
+        from: this.configService.get<string>('SMTP_FROM') || '"Agência Cuei" <no-reply@cuei.com.br>'
       });
       this.logger.log('Mail transporter initialized successfully');
     } catch (error) {

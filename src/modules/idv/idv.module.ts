@@ -22,5 +22,7 @@ import { RedisModule } from 'src/config/redis/redis.module';
   exports: [IdvService],
 })
 export class IdvModule {
-  
+  constructor() {
+    console.log('📦 IdvModule inicializado');
+  }
 }

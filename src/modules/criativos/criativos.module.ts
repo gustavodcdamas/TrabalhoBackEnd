@@ -1,12 +1,12 @@
 import { forwardRef, Module } from '@nestjs/common';
-import { criativosService } from './criativos.service';
+import { CriativosService } from './criativos.service';
 import { CriativosController } from './criativos.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Criativo } from './entities/criativo.entity';
 import { UploadsModule } from '../uploads/uploads.module';
+import { LoggerModule } from '../logger/logger.module';
 import { AuthModule } from '../auth/auth.module';
 import { RedisModule } from 'src/config/redis/redis.module';
-import { LoggerModule } from '../logger/logger.module';
 
 @Module({
   imports: [
@@ -17,9 +17,11 @@ import { LoggerModule } from '../logger/logger.module';
     RedisModule
   ],
   controllers: [CriativosController],
-  providers: [ criativosService ],
-  exports: [criativosService],
+  providers: [CriativosService],
+  exports: [CriativosService],
 })
 export class CriativosModule {
-  
+  constructor() {
+    console.log('📦 CriativosModule inicializado');
+  }
 }

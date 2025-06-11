@@ -8,4 +8,8 @@ import { LogsController } from './logger.controller';
   exports: [ LoggerService],
   controllers: [LogsController],
 })
-export class LoggerModule {}
+export class LoggerModule {
+  constructor() {
+    console.log('📦 Logger Module inicializado');
+  }
+}

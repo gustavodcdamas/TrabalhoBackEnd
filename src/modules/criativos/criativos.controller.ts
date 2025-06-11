@@ -1,104 +1,135 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UseInterceptors, UploadedFile, Req, UnauthorizedException, UsePipes, ValidationPipe } from '@nestjs/common';
-import { criativosService } from './criativos.service';
-import { CreateCriativoDto, CriativoWithImageDto } from './dto/create-criativo.dto';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, UploadedFile, UseInterceptors, BadRequestException, InternalServerErrorException, Query } from '@nestjs/common';
+import { CriativosService } from './criativos.service';
+import { CreateCriativoDto } from './dto/create-criativo.dto';
 import { UpdateCriativoDto } from './dto/update-criativo.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Criativo } from './entities/criativo.entity';
 import { UploadsService } from '../uploads/uploads.service';
-import { SanitizePipe } from 'src/common/sanitize.pipe';
-import { Request } from 'express';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { LoggerService } from '../logger/logger.service';
+import { Request } from 'express';
+import { JwtUser } from '../auth/decorators/jwt-user.decorator';
 
+@ApiTags('Criativos')
 @Controller('api/criativos')
 export class CriativosController {
   constructor(
-    private readonly CriativosService: criativosService,
+    private readonly criativosService: CriativosService,
     private readonly uploadsService: UploadsService,
     private logger: LoggerService,
-  ) {}
-
-  @Get('redis-test')
-  async testRedis() {
-    return this.CriativosService.checkRedisConnection();
+  ) {
+    this.logger.log('CriativosController inicializado', 'CriativosController');
   }
 
-  @Get('cache-test')
-  async cacheTest() {
-  
-    await this.CriativosService.setCacheValue('test_key', 'test_value');
-    
-    const value = await this.CriativosService.getCacheValue('test_key');
-    
-    return {
-      set: 'test_value',
-      get: value
-    };
-  }
-
-  @Get('cache-clear')
-  async cacheClear() {
-    await this.CriativosService.clearCache();
-    return { message: 'Cache cleared' };
-  }
+  // ===== ENDPOINTS PRINCIPAIS =====
 
   @Post()
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('image'))
-  @UsePipes(new SanitizePipe({
-    titulo: 'name',       // Sanitiza como nome
-    descricao: 'text',    // Sanitiza como texto
-    icon: 'url',
-    image: 'url'
-  }), new ValidationPipe())
+  @ApiOperation({ summary: 'Criar novo projeto criativo' })
+  @ApiResponse({ status: 201, description: 'Projeto criado com sucesso' })
+  @ApiResponse({ status: 400, description: 'Dados inválidos' })
+  @ApiResponse({ status: 401, description: 'Não autorizado' })
   async create(
-    @Body() CreateCriativosDto: CriativoWithImageDto,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() createCriativoDto: CreateCriativoDto,
     @Req() req: Request,
-    @UploadedFile() file?: Express.Multer.File,
+    @JwtUser() user: any
   ): Promise<Criativo> {
-    if (!req.user) {
-      this.logger.error(
-        'Tentativa de criação de Criativos sem usuário autenticado',
-        '',
-        'CriativosController'
-      );
-      throw new UnauthorizedException('Usuário não autenticado');
-    }
-
-    // Agora o TypeScript sabe que req.user tem email e firstName
-    const userEmail = req.user.email;
-    const userName = req.user.firstName;
+    this.logger.log(`Criando novo criativo - User: ${user.id}`, 'CriativosController');
     
     try {
-      this.logger.log(
-        `Usuário ${userName} (${userEmail}) iniciando criação de Criativos`,
-        'CriativosController'
-      );
-
-      if (file) {
-        this.logger.log(
-          `Processando upload de imagem para novo Criativos`,
-          'CriativosController'
-        );
-        const processedImage = await this.uploadsService.processUploadedImage(file);
-        CreateCriativosDto.image = processedImage.medium;
+      // Validações
+      if (!file) {
+        this.logger.warn('❌ Arquivo de imagem não fornecido', 'CriativosController');
+        throw new BadRequestException('Arquivo de imagem é obrigatório');
       }
 
-      const result = await this.CriativosService.create(CreateCriativosDto);
+      if (!createCriativoDto.cliente) {
+        this.logger.warn('❌ Cliente não fornecido', 'CriativosController');
+        throw new BadRequestException('Cliente é obrigatório');
+      }
+
+      if (!createCriativoDto.descricao) {
+        this.logger.warn('❌ Descrição não fornecida', 'CriativosController');
+        throw new BadRequestException('Descrição é obrigatória');
+      }
+
+      this.logger.log(`📸 Processando upload de imagem: ${file.originalname} (${file.size} bytes)`, 'CriativosController');
+
+      // Processar imagem
+      const processedImage = await this.uploadsService.processUploadedImage(file);
       
-      this.logger.log(
-        `Criativos criado com sucesso por ${userName} (${userEmail}). ID: ${result.id}`,
-        'CriativosController'
-      );
+      // Preparar dados
+      const criativoData = {
+        cliente: createCriativoDto.cliente,
+        descricao: createCriativoDto.descricao,
+        image: processedImage.medium,
+        titulo: createCriativoDto.titulo || `Projeto Criativo ${createCriativoDto.cliente}`,
+        status: 'ativo'
+      };
+
+      // Salvar
+      const result = await this.criativosService.create(criativoData);
       
+      this.logger.log(`Criativo criado com sucesso - ID: ${result.id}`, 'CriativosController');
       return result;
-    } catch (error) {
-      this.logger.error(
-        `Falha na criação de Criativos por ${userName} (${userEmail}): ${error.message}`,
-        error.stack,
-        'CriativosController'
-      );
+
+    } catch (error: any) {
+      this.logger.error(`Erro ao criar criativo: ${error.message}`, error.stack, 'CriativosController');
+      
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      throw new InternalServerErrorException(`Erro interno: ${error.message}`);
+    }
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Listar todos os projetos criativos' })
+  @ApiResponse({ status: 200, description: 'Lista de projetos' })
+  async findAll(
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number
+  ): Promise<Criativo[]> {
+    try {
+      return await this.criativosService.findAll({
+        status,
+        search,
+        page: page || 1,
+        limit: limit || 10
+      });
+    } catch (error: any) {
+      this.logger.error(`Erro ao buscar criativos: ${error.message}`, error.stack, 'CriativosController');
+      throw new InternalServerErrorException('Erro ao buscar projetos');
+    }
+  }
+
+  @Get('stats')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Obter estatísticas dos projetos' })
+  async getStats(): Promise<any> {
+    try {
+      return await this.criativosService.getStats();
+    } catch (error: any) {
+      this.logger.error(`Erro ao buscar estatísticas: ${error.message}`, error.stack, 'CriativosController');
+      throw new InternalServerErrorException('Erro ao buscar estatísticas');
+    }
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Buscar projeto por ID' })
+  @ApiResponse({ status: 200, description: 'Projeto encontrado' })
+  @ApiResponse({ status: 404, description: 'Projeto não encontrado' })
+  async findOne(@Param('id') id: string): Promise<Criativo> {
+    try {
+      return await this.criativosService.findOne(id);
+    } catch (error: any) {
+      this.logger.error(`Erro ao buscar criativo ${id}: ${error.message}`, error.stack, 'CriativosController');
       throw error;
     }
   }
@@ -106,47 +137,119 @@ export class CriativosController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('image'))
-  @UsePipes(new SanitizePipe({
-    titulo: 'name',
-    descricao: 'text',
-    icon: 'url',
-    image: 'url'
-  }), new ValidationPipe())
+  @ApiOperation({ summary: 'Atualizar projeto criativo' })
+  @ApiResponse({ status: 200, description: 'Projeto atualizado com sucesso' })
+  @ApiResponse({ status: 404, description: 'Projeto não encontrado' })
   async update(
     @Param('id') id: string,
-    @Body() updateCriativosDto: UpdateCriativoDto,
+    @Body() updateCriativoDto: UpdateCriativoDto,
     @UploadedFile() file?: Express.Multer.File,
+    @JwtUser() user?: any
   ): Promise<Criativo> {
+    this.logger.log(`Atualizando criativo ${id} - User: ${user?.id}`, 'CriativosController');
+    
     try {
+      // Se há arquivo, processar nova imagem
       if (file) {
         const processedImage = await this.uploadsService.processUploadedImage(file);
-        updateCriativosDto.image = processedImage.medium;
+        updateCriativoDto.image = processedImage.medium;
       }
       
-      return await this.CriativosService.update(id, updateCriativosDto);
-    } catch (error) {
-      this.logger.error(
-        `Falha na atualização do Criativos ID ${id}: ${error.message}`,
-        error.stack,
-        'CriativosController'
-      );
+      const result = await this.criativosService.update(id, updateCriativoDto);
+      
+      this.logger.log(`Criativo ${id} atualizado com sucesso`, 'CriativosController');
+      return result;
+      
+    } catch (error: any) {
+      this.logger.error(`Erro ao atualizar criativo ${id}: ${error.message}`, error.stack, 'CriativosController');
       throw error;
     }
   }
 
-  @Get()
-  findAll(): Promise<Criativo[]> {
-    return this.CriativosService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string): Promise<Criativo> {
-    return this.CriativosService.findOne(id);
-  }
-
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
-  remove(@Param('id') id: string): Promise<void> {
-    return this.CriativosService.remove(id);
+  @ApiOperation({ summary: 'Excluir projeto criativo' })
+  @ApiResponse({ status: 200, description: 'Projeto excluído com sucesso' })
+  @ApiResponse({ status: 404, description: 'Projeto não encontrado' })
+  async remove(
+    @Param('id') id: string,
+    @JwtUser() user: any
+  ): Promise<{message: string}> {
+    this.logger.log(`Excluindo criativo ${id} - User: ${user.id}`, 'CriativosController');
+    
+    try {
+      await this.criativosService.remove(id, user.id);
+      
+      this.logger.log(`Criativo ${id} excluído com sucesso`, 'CriativosController');
+      return { message: 'Projeto criativo excluído com sucesso' };
+      
+    } catch (error: any) {
+      this.logger.error(`Erro ao excluir criativo ${id}: ${error.message}`, error.stack, 'CriativosController');
+      throw error;
+    }
+  }
+
+  // ===== ENDPOINTS UTILITÁRIOS =====
+
+  @Post('upload-image')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('image'))
+  @ApiOperation({ summary: 'Upload de imagem independente' })
+  async uploadImage(
+    @UploadedFile() file: Express.Multer.File
+  ): Promise<{url: string}> {
+    try {
+      if (!file) {
+        throw new BadRequestException('Arquivo é obrigatório');
+      }
+
+      const processedImage = await this.uploadsService.processUploadedImage(file);
+      
+      return {
+        url: processedImage.medium
+      };
+      
+    } catch (error: any) {
+      this.logger.error(`Erro no upload de imagem: ${error.message}`, error.stack, 'CriativosController');
+      throw new BadRequestException(`Erro no upload: ${error.message}`);
+    }
+  }
+
+  // ===== ENDPOINTS DE DEBUG (REMOVER EM PRODUÇÃO) =====
+
+  @Get('debug/health')
+  async healthCheck(): Promise<any> {
+    return {
+      status: 'OK',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development'
+    };
+  }
+
+  @Get('debug/check-table')
+  async checkTable(): Promise<any> {
+    this.logger.log('🔍 Verificando estrutura da tabela Criativos', 'CriativosController');
+    
+    try {
+      // Tentar fazer uma query simples para verificar se a tabela existe
+      const count = await this.criativosService.criativosRepository.count();
+      this.logger.log(`✅ Tabela Criativos existe e tem ${count} registros`, 'CriativosController');
+      
+      return { 
+        status: 'OK', 
+        tableExists: true, 
+        recordCount: count,
+        message: 'Tabela Criativos está funcionando corretamente'
+      };
+    } catch (error: any) {
+      this.logger.error(`❌ Problema com tabela Criativos: ${error.message}`, error.stack, 'CriativosController');
+      return { 
+        status: 'ERROR', 
+        tableExists: false, 
+        error: error.message,
+        message: 'Tabela Criativos não existe ou há problemas de configuração'
+      };
+    }
   }
 }

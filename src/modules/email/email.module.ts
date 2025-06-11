@@ -29,4 +29,8 @@ import * as nodemailer from 'nodemailer';
   exports: [EmailService],
 })
 
-export class EmailModule {}
+export class EmailModule {
+    constructor() {
+    console.log('📦 Email Module inicializado');
+  }
+}

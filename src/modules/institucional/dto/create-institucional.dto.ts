@@ -1,6 +1,7 @@
 import { IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 import { Institucional } from '../entities/institucional.entity';
 import { Column } from "typeorm";
+import { ApiProperty } from "@nestjs/swagger";
 
 export class CreateInstitucionalDto {
   @IsOptional() // Opcional se você vai gerar automaticamente no service
@@ -33,5 +34,7 @@ export class CreateInstitucionalDto {
 }
 
 export class InstitucionalWithImageDto extends CreateInstitucionalDto {
+  @ApiProperty({ type: 'string', format: 'binary', description: 'Arquivo de imagem' })
   file?: Express.Multer.File;
+  declare image?: string;
 }

@@ -20,4 +20,8 @@ import { RedisModule } from 'src/config/redis/redis.module';
   providers: [LandingService],
   exports: [LandingService],
 })
-export class LandingModule {}
+export class LandingModule {
+  constructor() {
+    console.log('📦 Landing Module inicializado');
+  }
+}

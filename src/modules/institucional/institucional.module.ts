@@ -21,4 +21,8 @@ import { RedisModule } from 'src/config/redis/redis.module';
   providers: [InstitucionalService],
   exports: [InstitucionalService],
 })
-export class InstitucionalModule {}
+export class InstitucionalModule {
+  constructor() {
+    console.log('📦 Institucional Module inicializado');
+  }
+}

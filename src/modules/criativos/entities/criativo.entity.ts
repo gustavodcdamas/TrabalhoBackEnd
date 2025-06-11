@@ -1,39 +1,34 @@
-import { IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn } from 'typeorm';
 
-@Entity('Criativo')
+@Entity('criativos')
 export class Criativo {
-    
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-    @Column()
-    @IsNotEmpty()
-    @IsString()
-    @MinLength(2)
-    @MaxLength(50, { message: 'O nome não pode ter mais de 50 caracteres' })
-    title: string;
+  @Column({ nullable: true }) // Permitir nulo se não for obrigatório
+  titulo: string;
 
-    @Column({ nullable: true })
-    @IsNotEmpty()
-    @IsString()
-    @MinLength(2)
-    @MaxLength(50, { message: 'O nome não pode ter mais de 50 caracteres' })
-    image: string;
+  @Column()
+  cliente: string;
 
-    @Column()
-    @IsNotEmpty()
-    @IsString()
-    @MinLength(2)
-    @MaxLength(200, { message: 'A descrição não pode ter mais de 200 caracteres' })
-    descricao: string;
+  @Column({ nullable: true }) // Este campo pode ser nulo inicialmente
+  excluidoPor: string;
 
-    @CreateDateColumn()
-    createdAt: Date;
+  @Column({ default: 'ativo' }) // Valor padrão
+  status: string;
 
-    @UpdateDateColumn()
-    updatedAt: Date;
+  @Column()
+  descricao: string;
 
-    @DeleteDateColumn()
-    deleted_at: Date;
+  @Column()
+  image: string;
+
+  @CreateDateColumn({ name: 'created_at' }) // Mapear para o nome correto da coluna
+  dataCriacao: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' }) // Mapear para o nome correto da coluna
+  dataAtualizacao: Date;
+
+  @DeleteDateColumn({ name: 'deleted_at' })
+  dataExclusao: Date;
 }

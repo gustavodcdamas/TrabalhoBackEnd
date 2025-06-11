@@ -34,4 +34,8 @@ const jwtSecret = process.env.JWT_SECRET;
   providers: [AuthService, UsersService, LocalStrategy, JwtStrategy, MailService ],
   exports: [AuthService],
 })
-export class AuthModule {}
+export class AuthModule {
+  constructor() {
+    console.log('📦 Auth Module inicializado');
+  }
+}

@@ -4,12 +4,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { LoggerService } from '../../logger/logger.service';
 import { ServicosService } from '../../services/servicos.service';
-import { criativosService } from '../../criativos/criativos.service';
+import { CriativosService } from '../../criativos/criativos.service';
 
 @Injectable()
 export class LimpezaService implements OnModuleInit {
   constructor(private readonly logger: LoggerService,
-  private readonly criativosService: criativosService,
+  private readonly criativosService: CriativosService,
   private readonly servicosService: ServicosService,
   ) {}
 
