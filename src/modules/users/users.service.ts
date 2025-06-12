@@ -242,11 +242,34 @@ export class UsersService {
   }
 
   async findByResetPasswordExpiresGreaterThan(date: Date): Promise<UserEntity[]> {
-    return this.usersRepository.find({
+    console.log('🔍 Buscando usuários com resetPasswordExpires maior que:', date);
+    
+    const users = await this.usersRepository.find({
       where: {
-        resetPasswordExpires: MoreThan(date)
-      }
+        resetPasswordExpires: MoreThan(date),
+      },
+      select: [
+        'id', 
+        'email', 
+        'resetPasswordTokenHash',  // ✅ IMPORTANTE: Incluir este campo!
+        'resetPasswordExpires',
+        'isEmailVerified'  // Pode ser útil também
+      ]
     });
+    
+    console.log('👥 Usuários encontrados:', users.length);
+    
+    users.forEach((user, index) => {
+      console.log(`📋 Usuário ${index + 1}:`, {
+        email: user.email,
+        hasToken: !!user.resetPasswordTokenHash,
+        expires: user.resetPasswordExpires,
+        tokenPreview: user.resetPasswordTokenHash ? 
+          user.resetPasswordTokenHash.substring(0, 10) + '...' : 'null'
+      });
+    });
+    
+    return users;
   }
 
   async updateUser(updateUserDto: UpdateUserDto): Promise<UserEntity> {

@@ -117,15 +117,30 @@ export class AuthController {
 
   @Post('validate-reset-token')
   async validateResetToken(@Body() body: { token: string }) {
+    console.log('🔍 Validando token de reset:', body.token);
+    
     const users = await this.userService.findByResetPasswordExpiresGreaterThan(new Date());
+    console.log('👥 Usuários com token válido encontrados:', users.length);
     
     for (const user of users) {
-      if (user.resetPasswordTokenHash && 
-          await bcrypt.compare(body.token, user.resetPasswordTokenHash)) {
-        return true;
+      console.log('🔐 Verificando usuário:', {
+        email: user.email,
+        hasTokenHash: !!user.resetPasswordTokenHash,
+        expires: user.resetPasswordExpires
+      });
+      
+      if (user.resetPasswordTokenHash) {
+        const isValid = await bcrypt.compare(body.token, user.resetPasswordTokenHash);
+        console.log('✅ Token válido para', user.email, ':', isValid);
+        
+        if (isValid) {
+          console.log('🎉 Token validado com sucesso!');
+          return true;
+        }
       }
     }
     
+    console.log('❌ Token não encontrado ou inválido');
     return false;
   }
 

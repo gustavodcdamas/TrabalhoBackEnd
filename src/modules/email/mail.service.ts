@@ -27,59 +27,60 @@ export class MailService {
     }
   }
 
-    async sendVerificationEmail(to: string, token: string): Promise<void> {
-        const appUrl = this.configService.get<string>('BASE_URL') || 'http://localhost:3000';
-        const verificationUrl = `${appUrl}/api/auth/verify-email?token=${token}`;
-        const from = this.configService.get<string>('SMTP_FROM') || '"Agência Cuei" <no-reply@cuei.com.br>';
+  async sendVerificationEmail(to: string, token: string): Promise<void> {
+      const appUrl = this.configService.get<string>('BASE_URL') || 'http://localhost:3000';
+      const verificationUrl = `${appUrl}/api/auth/verify-email?token=${token}`;
+      const from = this.configService.get<string>('SMTP_FROM') || '"Agência Cuei" <no-reply@cuei.com.br>';
 
-        try {
-            await this.transporter.sendMail({
-                from,
-                to,
-                subject: 'Verifique seu email',
-                html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h1 style="color: #2563eb;">Bem-vindo ao Nosso App!</h1>
-                    <p>Por favor, clique no botão abaixo para verificar seu endereço de email:</p>
-                    
-                    <a href="${verificationUrl}" 
-                    style="display: inline-block; padding: 12px 24px; background-color: #2563eb; 
-                            color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">
-                    Verificar Email
-                    </a>
-                    
-                    <p style="margin-top: 20px;">Se você não criou uma conta, por favor ignore este email.</p>
-                    
-                    <p style="margin-top: 30px; font-size: 12px; color: #6b7280;">
-                    Se o botão não funcionar, copie e cole este link no seu navegador:<br>
-                    ${verificationUrl}
-                    </p>
-                </div>
-                `,
-                text: `Por favor, verifique seu email acessando este link: ${verificationUrl}`,
-            });
-            this.logger.log(`Verification email sent to ${to}`);
-        } catch (error) {
-            this.logger.error(`Failed to send verification email to ${to}`, error.stack);
-            throw new Error('Falha ao enviar email de verificação');
-        }
-    }
+      try {
+          await this.transporter.sendMail({
+              from,
+              to,
+              subject: 'Verifique seu email',
+              html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h1 style="color: #2563eb;">Bem-vindo ao Nosso App!</h1>
+                  <p>Por favor, clique no botão abaixo para verificar seu endereço de email:</p>
+                  
+                  <a href="${verificationUrl}" 
+                  style="display: inline-block; padding: 12px 24px; background-color: #2563eb; 
+                          color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">
+                  Verificar Email
+                  </a>
+                  
+                  <p style="margin-top: 20px;">Se você não criou uma conta, por favor ignore este email.</p>
+                  
+                  <p style="margin-top: 30px; font-size: 12px; color: #6b7280;">
+                  Se o botão não funcionar, copie e cole este link no seu navegador:<br>
+                  ${verificationUrl}
+                  </p>
+              </div>
+              `,
+              text: `Por favor, verifique seu email acessando este link: ${verificationUrl}`,
+          });
+          this.logger.log(`Verification email sent to ${to}`);
+      } catch (error) {
+          this.logger.error(`Failed to send verification email to ${to}`, error.stack);
+          throw new Error('Falha ao enviar email de verificação');
+      }
+  }
 
-    async sendMail(options: { to: string; subject: string; html: string; text?: string }): Promise<void> {
-        try {
-            await this.transporter.sendMail({
-            from: this.configService.get<string>('SMTP_FROM') || '"Agência Cuei" <levetudo464@gmail.com>',
-            ...options
-            });
-        } catch (error) {
-            console.error('Erro ao enviar email:', error);
-            throw new Error('Falha ao enviar email');
-        }
-    }
+  async sendMail(options: { to: string; subject: string; html: string; text?: string }): Promise<void> {
+      try {
+          await this.transporter.sendMail({
+          from: this.configService.get<string>('SMTP_FROM') || '"Agência Cuei" <levetudo464@gmail.com>',
+          ...options
+          });
+      } catch (error) {
+          console.error('Erro ao enviar email:', error);
+          throw new Error('Falha ao enviar email');
+      }
+  }
 
-    async sendPasswordResetEmail(to: string, token: string): Promise<void> {
-    const appUrl = this.configService.get<string>('BASE_URL') || 'http://localhost:3000';
-    const resetUrl = `${appUrl}/api/auth/reset-password?token=${token}`;
+  async sendPasswordResetEmail(to: string, token: string): Promise<void> {
+    // ✅ CORRIGIDO: Usar apenas FRONTEND_URL e rota correta do Angular
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4200';
+    const resetUrl = `${frontendUrl}/auth/reset-password?token=${token}`;
     const from = this.configService.get<string>('SMTP_FROM') || '"Agência Cuei" <no-reply@cuei.com.br>';
 
     try {
@@ -93,7 +94,7 @@ export class MailService {
             <p>Você solicitou a redefinição de senha. Clique no link abaixo para continuar:</p>
             
             <a href="${resetUrl}"
-               style="display: inline-block; padding: 12px 24px; background-color: #dc2626; 
+              style="display: inline-block; padding: 12px 24px; background-color: #dc2626; 
                       color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">
               Redefinir Senha
             </a>

@@ -79,10 +79,10 @@ export class UserEntity {
     this.emailVerificationToken = null;
   }
 
-  @Column({ nullable: true, type: 'varchar', select: false })
+  @Column({ name: 'resetPasswordTokenHash', type: 'text', nullable: true })
   resetPasswordTokenHash: string | null;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ name: 'resetPasswordExpires', type: 'timestamp', nullable: true })
   resetPasswordExpires: Date | null;
 
   @Column({ default: false, select: false })

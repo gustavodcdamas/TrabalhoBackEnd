@@ -31,7 +31,7 @@ export class AuthService {
     const expires = Date.now() + 1000 * 60 * 30; // 30 minutos
     this.deletionTokens.set(token, { email, expires });
 
-    const baseUrl = this.configService.get<string>('BASE_URL') || 'http://localhost:3000';
+    const baseUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4200';
     const confirmationUrl = `${baseUrl}/api/auth/confirm-account-deletion?token=${token}`;
 
     await this.mailService.sendMail({
@@ -153,21 +153,22 @@ export class AuthService {
       throw new NotFoundException('Usuário não encontrado');
     }
 
+    // ✅ GERAR APENAS O TOKEN
     const plainToken = crypto.randomBytes(32).toString('hex');
     const expires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutos
 
-    // Corrigido: incluindo emailVerified para satisfazer UpdateUserDto
     await this.userService.update(user.id, {
       resetPasswordTokenHash: await bcrypt.hash(plainToken, 10),
       resetPasswordExpires: expires,
-      emailVerified: user.emailVerified // Incluído campo obrigatório
+      emailVerified: user.emailVerified
     });
 
+    // ✅ PASSAR APENAS O TOKEN, NÃO A URL COMPLETA
     await this.mailService.sendPasswordResetEmail(user.email, plainToken);
 
     return { message: 'E-mail de redefinição enviado' };
   }
-
+  
   async resetPassword(token: string, newPassword: string) {
     const users = await this.userService.findByResetPasswordExpiresGreaterThan(new Date());
     
@@ -267,4 +268,5 @@ export class AuthService {
   async verifyEmail(token: string): Promise<boolean> {
     return this.userService.verifyEmail(token);
   }
+  
 }
