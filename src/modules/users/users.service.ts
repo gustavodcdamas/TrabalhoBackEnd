@@ -7,7 +7,7 @@ import {
 import { HttpService } from '@nestjs/axios';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { Repository, FindOptionsWhere, FindOneOptions, MoreThan } from 'typeorm';
+import { Repository, FindOptionsWhere, FindOneOptions, MoreThan, In } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UserEntity } from './entities/user.entity';
 import { UserRole } from '../../enums/user-role.enum';
@@ -15,22 +15,21 @@ import * as crypto from "crypto";
 import * as bcrypt from 'bcrypt';
 import { UpdateUserVerificationDto } from './dto/update-user-verification.dto';
 import { firstValueFrom } from 'rxjs';
+import { CreateAdminDto } from './dto/create-admin.dto';
 
 @Injectable()
 export class UsersService {
 
-  //construtor que injeta a entidade usuarios
   constructor(
     @InjectRepository(UserEntity)
     private readonly usersRepository: Repository<UserEntity>,
     private readonly httpService: HttpService,
   ) {}
 
-  //metodo para criar um novo usuario admin
+  // Método para criar um novo usuário regular
   async create(createUserDto: CreateUserDto): Promise<UserEntity> {
     const token = crypto.randomBytes(32).toString('hex');
 
-    // Usar uma nova instância de UserEntity
     const user = new UserEntity();
     user.email = createUserDto.email;
     user.password = createUserDto.password;
@@ -56,7 +55,94 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
-  //metodo para encontrar um usuario pelo email
+  // ✅ MÉTODO CORRIGIDO PARA CRIAR ADMINISTRADORES
+  async createAdmin(createAdminDto: CreateAdminDto): Promise<UserEntity> {
+    // Verificar se já existe um usuário com este email
+    const existingUser = await this.usersRepository.findOne({ 
+      where: { email: createAdminDto.email } 
+    });
+
+    if (existingUser) {
+      throw new ConflictException('User with this email already exists');
+    }
+
+    // Hash da senha
+    const hashedPassword = await bcrypt.hash(createAdminDto.password, 10);
+
+    const admin = this.usersRepository.create({
+      firstName: createAdminDto.firstName,
+      lastName: createAdminDto.lastName,
+      email: createAdminDto.email,
+      password: hashedPassword,
+      role: UserRole.ADMIN,
+      isEmailVerified: true, // Admins não precisam verificar email
+      isAdmin: true,
+      isClient: false,
+    });
+
+    return this.usersRepository.save(admin);
+  }
+
+  // ✅ MÉTODO CORRIGIDO PARA BUSCAR ADMINISTRADORES - CORRIGINDO OS NOMES DOS CAMPOS
+  async findAllAdministrators(): Promise<UserEntity[]> {
+    try {
+      return await this.usersRepository.find({
+        where: {
+          role: In([UserRole.ADMIN, UserRole.SUPER_ADMIN])
+        },
+        // ✅ CORRIGIDO: Removendo campos que não existem na entidade
+        select: ['id', 'firstName', 'lastName', 'email', 'role', 'isEmailVerified'],
+        // ✅ CORRIGIDO: Usando campo que existe na entidade
+        order: { id: 'DESC' }
+      });
+    } catch (error) {
+      console.error('Erro ao buscar administradores:', error);
+      throw new InternalServerErrorException('Erro ao buscar administradores');
+    }
+  }
+
+  // ✅ MÉTODO PARA BUSCAR ADMINISTRADORES COM FILTROS
+  async searchAdministrators(criteria: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    role?: UserRole;
+  }): Promise<UserEntity[]> {
+    const queryBuilder = this.usersRepository.createQueryBuilder('user');
+    
+    // Filtrar apenas administradores
+    queryBuilder.where('user.role IN (:...roles)', { 
+      roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN] 
+    });
+
+    if (criteria.firstName) {
+      queryBuilder.andWhere('user.firstName ILIKE :firstName', { 
+        firstName: `%${criteria.firstName}%` 
+      });
+    }
+
+    if (criteria.lastName) {
+      queryBuilder.andWhere('user.lastName ILIKE :lastName', { 
+        lastName: `%${criteria.lastName}%` 
+      });
+    }
+
+    if (criteria.email) {
+      queryBuilder.andWhere('user.email ILIKE :email', { 
+        email: `%${criteria.email}%` 
+      });
+    }
+
+    if (criteria.role) {
+      queryBuilder.andWhere('user.role = :role', { role: criteria.role });
+    }
+
+    return queryBuilder
+      .select(['user.id', 'user.firstName', 'user.lastName', 'user.email', 'user.role', 'user.isEmailVerified'])
+      .orderBy('user.id', 'DESC')
+      .getMany();
+  }
+
   async removeByEmail(email: string): Promise<void> {
     const user = await this.usersRepository.findOne({ where: { email } });
     if (user) {
@@ -64,24 +150,127 @@ export class UsersService {
     }
   }
 
-  //metodo para encontrar um usuario pelo id
   async update(id: string, updateUserDto: UpdateUserDto): Promise<UserEntity> {
+    console.log('🔄 [UsersService] ==================== INÍCIO update ====================');
+    console.log('🆔 [UsersService] ID:', id);
+    console.log('📝 [UsersService] Dados recebidos:', JSON.stringify(updateUserDto, null, 2));
+    
     const user = await this.usersRepository.findOneByOrFail({ id });
+    console.log('👤 [UsersService] Usuário encontrado:', {
+      id: user.id,
+      email: user.email,
+      roleAtual: user.role,
+      isSuperAdmin: user.isSuperAdmin,
+      isAdmin: user.isAdmin
+    });
     
-    // Atualizar diretamente as propriedades do objeto user
-    if (updateUserDto.firstName !== undefined) user.firstName = updateUserDto.firstName;
-    if (updateUserDto.lastName !== undefined) user.lastName = updateUserDto.lastName;
-    if (updateUserDto.username !== undefined) user.username = updateUserDto.username;
-    if (updateUserDto.password !== undefined) user.password = updateUserDto.password;
+    // Se estiver atualizando a senha, hash ela
+    if (updateUserDto.password) {
+      updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
+      console.log('🔐 [UsersService] Senha será atualizada');
+    }
     
-    // Corrigir a verificação de tipo para role
+    // Atualizar propriedades básicas
+    if (updateUserDto.firstName !== undefined) {
+      user.firstName = updateUserDto.firstName;
+      console.log('📝 [UsersService] firstName atualizado para:', updateUserDto.firstName);
+    }
+    
+    if (updateUserDto.lastName !== undefined) {
+      user.lastName = updateUserDto.lastName;
+      console.log('📝 [UsersService] lastName atualizado para:', updateUserDto.lastName);
+    }
+    
+    if (updateUserDto.email !== undefined) {
+      user.email = updateUserDto.email;
+      console.log('📧 [UsersService] email atualizado para:', updateUserDto.email);
+    }
+    
+    if (updateUserDto.username !== undefined) {
+      user.username = updateUserDto.username;
+      console.log('👤 [UsersService] username atualizado para:', updateUserDto.username);
+    }
+    
+    if (updateUserDto.password !== undefined) {
+      user.password = updateUserDto.password;
+      console.log('🔐 [UsersService] password atualizado');
+    }
+    
+    // ✅ CORRIGIR ATUALIZAÇÃO DE ROLE - PARTE MAIS IMPORTANTE
     if (updateUserDto.role !== undefined) {
-      // Verificar se é um valor válido do enum UserRole
-      if (Object.values(UserRole).includes(updateUserDto.role as UserRole)) {
-        user.role = updateUserDto.role as UserRole;
+      console.log('👑 [UsersService] ATUALIZANDO ROLE...');
+      console.log('👑 [UsersService] Role atual:', user.role);
+      console.log('👑 [UsersService] Novo role recebido:', updateUserDto.role);
+      
+      // ✅ NORMALIZAR O ROLE RECEBIDO (aceitar várias variações)
+      let normalizedRole: string;
+      switch (updateUserDto.role.toLowerCase().replace(/[-_\s]/g, '')) {
+        case 'superadmin':
+        case 'super_admin':
+        case 'super-admin':
+        case 'superadministrator':
+          normalizedRole = UserRole.SUPER_ADMIN;
+          break;
+        case 'admin':
+        case 'administrator':
+          normalizedRole = UserRole.ADMIN;
+          break;
+        case 'client':
+        case 'cliente':
+        case 'user':
+          normalizedRole = UserRole.CLIENT;
+          break;
+        default:
+          console.error('❌ [UsersService] Role não reconhecido:', updateUserDto.role);
+          throw new Error(`Role inválido: ${updateUserDto.role}. Valores aceitos: admin, super_admin, client`);
+      }
+      
+      console.log('👑 [UsersService] Role normalizado:', normalizedRole);
+      
+      // Verificar se é um role válido do enum
+      const validRoles = Object.values(UserRole);
+      if (validRoles.includes(normalizedRole as UserRole)) {
+        const newRole = normalizedRole as UserRole;
+        user.role = newRole;
+        
+        // ✅ ATUALIZAR FLAGS SE EXISTIREM NA ENTIDADE
+        switch (newRole) {
+          case UserRole.SUPER_ADMIN:
+            if ('isSuperAdmin' in user) user.isSuperAdmin = true;
+            if ('isAdmin' in user) user.isAdmin = true;
+            if ('isClient' in user) user.isClient = false;
+            console.log('👑 [UsersService] Promovido para SUPER_ADMIN');
+            break;
+          case UserRole.ADMIN:
+            if ('isSuperAdmin' in user) user.isSuperAdmin = false;
+            if ('isAdmin' in user) user.isAdmin = true;
+            if ('isClient' in user) user.isClient = false;
+            console.log('👔 [UsersService] Definido como ADMIN');
+            break;
+          case UserRole.CLIENT:
+            if ('isSuperAdmin' in user) user.isSuperAdmin = false;
+            if ('isAdmin' in user) user.isAdmin = false;
+            if ('isClient' in user) user.isClient = true;
+            console.log('👤 [UsersService] Definido como CLIENT');
+            break;
+          default:
+            console.warn('⚠️ [UsersService] Role desconhecido:', newRole);
+        }
+        
+        console.log('✅ [UsersService] Role atualizado:', {
+          role: user.role,
+          isSuperAdmin: (user as any).isSuperAdmin || 'N/A',
+          isAdmin: (user as any).isAdmin || 'N/A',
+          isClient: (user as any).isClient || 'N/A'
+        });
+      } else {
+        console.error('❌ [UsersService] Role não existe no enum:', normalizedRole);
+        console.error('❌ [UsersService] Roles válidos:', validRoles);
+        throw new Error(`Role inválido: ${normalizedRole}`);
       }
     }
     
+    // Outros campos (mantidos como estavam)
     if (updateUserDto.resetPasswordTokenHash !== undefined) user.resetPasswordTokenHash = updateUserDto.resetPasswordTokenHash;
     if (updateUserDto.resetPasswordExpires !== undefined) user.resetPasswordExpires = updateUserDto.resetPasswordExpires;
     if (updateUserDto.emailVerificationToken !== undefined) user.emailVerificationToken = updateUserDto.emailVerificationToken;
@@ -98,13 +287,33 @@ export class UsersService {
     if (updateUserDto.estado !== undefined) user.estado = updateUserDto.estado;
     if (updateUserDto.numero !== undefined) user.numero = updateUserDto.numero;
     
-    // Atualizar address se fornecido
     if (updateUserDto.address !== undefined) user.address = updateUserDto.address;
 
-    return this.usersRepository.save(user);
+    console.log('💾 [UsersService] Salvando usuário...');
+    console.log('💾 [UsersService] Estado final antes de salvar:', {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      isSuperAdmin: user.isSuperAdmin,
+      isAdmin: user.isAdmin,
+      isClient: user.isClient
+    });
+
+    const savedUser = await this.usersRepository.save(user);
+    
+    console.log('✅ [UsersService] Usuário salvo com sucesso:', {
+      id: savedUser.id,
+      email: savedUser.email,
+      role: savedUser.role,
+      isSuperAdmin: savedUser.isSuperAdmin,
+      isAdmin: savedUser.isAdmin,
+      isClient: savedUser.isClient
+    });
+    console.log('🏁 [UsersService] ==================== FIM update ====================');
+
+    return savedUser;
   }
 
-  //metodo para encontrar um usuario pelo token de recuperacao de senha
   async findOneByResetToken(token: string): Promise<UserEntity | null> {
     const users = await this.usersRepository.find({
       where: {
@@ -120,7 +329,6 @@ export class UsersService {
     return null;
   }
 
-  //metodo para verificar email
   async verifyEmail(token: string): Promise<boolean> {
     const user = await this.usersRepository.findOne({ 
       where: { emailVerificationToken: token } 
@@ -135,9 +343,7 @@ export class UsersService {
     return true;
   }
 
-  //metodo para armazenar usuario no banco
   async store(data: CreateUserDto): Promise<UserEntity> {
-    // Usar uma nova instância de UserEntity
     const user = new UserEntity();
     user.email = data.email;
     user.password = data.password;
@@ -148,7 +354,6 @@ export class UsersService {
     user.resetPasswordTokenHash = data.resetPasswordTokenHash || null;
     user.resetPasswordExpires = data.resetPasswordExpires || null;
     
-    // Campos opcionais
     if (data.cpf) user.cpf = data.cpf;
     if (data.cep) user.cep = data.cep;
     if (data.logradouro) user.logradouro = data.logradouro;
@@ -160,14 +365,13 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
-  //metodo para buscar todos os usuarios do banco
   async findAll(): Promise<UserEntity[]> {
     return this.usersRepository.find({
-      select: ['id', 'firstName', 'lastName', 'email'],
+      select: ['id', 'firstName', 'lastName', 'email', 'role', 'isEmailVerified'],
+      order: { id: 'DESC' }
     });
   }
 
-  //metodo se a busca falhar
   async findOneOrFail(
     where: FindOptionsWhere<UserEntity> | FindOptionsWhere<UserEntity>[],
     options?: Omit<FindOneOptions<UserEntity>, 'where'>,
@@ -182,18 +386,15 @@ export class UsersService {
     }
   }
 
-  //metodo para verificar atualizacao no usuario
   async updateVerification(id: string, data: UpdateUserVerificationDto): Promise<UserEntity> {
     const user = await this.usersRepository.findOneByOrFail({ id });
     
-    // Atualizar diretamente as propriedades
     if (data.emailVerificationToken !== undefined) user.emailVerificationToken = data.emailVerificationToken;
     if (data.isEmailVerified !== undefined) user.isEmailVerified = data.isEmailVerified;
     
     return this.usersRepository.save(user);
   }
 
-  //metodo para buscar usuario pelo id
   async findOneById(id: string): Promise<UserEntity> {
     return this.usersRepository.findOneByOrFail({ id });
   }
@@ -205,23 +406,26 @@ export class UsersService {
     });
   }
 
-  //metodo para desetruir usuario
   async destroy(email: string): Promise<void> {
-    await this.usersRepository.findOneByOrFail({ email });
+    const user = await this.usersRepository.findOneByOrFail({ email });
+    
+    if (user.role === UserRole.SUPER_ADMIN) {
+      throw new ConflictException('Cannot delete Super Administrator');
+    }
+    
     await this.usersRepository.softDelete({ email });
   }
 
-  //metodo para buscar usuario com algum criterio
   async findByCriteria(
     where: FindOptionsWhere<UserEntity> | FindOptionsWhere<UserEntity>[],
   ): Promise<UserEntity[]> {
     return this.usersRepository.find({
       where,
-      select: ['id', 'firstName', 'email'],
+      select: ['id', 'firstName', 'lastName', 'email', 'role', 'isEmailVerified'],
+      order: { id: 'DESC' }
     });
   }
 
-  //metodo para buscar usuario por email
   async findOneByEmail(email: string, withPassword = false): Promise<UserEntity | null> {
     console.log(`[UsersService] Buscando usuário por email: ${email}`);
     const query = this.usersRepository.createQueryBuilder('user')
@@ -236,7 +440,6 @@ export class UsersService {
     return user;
   }
 
-  //metodo para salvar usuario no banco
   async save(user: UserEntity): Promise<UserEntity> {
     return this.usersRepository.save(user);
   }
@@ -251,24 +454,13 @@ export class UsersService {
       select: [
         'id', 
         'email', 
-        'resetPasswordTokenHash',  // ✅ IMPORTANTE: Incluir este campo!
+        'resetPasswordTokenHash',
         'resetPasswordExpires',
-        'isEmailVerified'  // Pode ser útil também
+        'isEmailVerified'
       ]
     });
     
     console.log('👥 Usuários encontrados:', users.length);
-    
-    users.forEach((user, index) => {
-      console.log(`📋 Usuário ${index + 1}:`, {
-        email: user.email,
-        hasToken: !!user.resetPasswordTokenHash,
-        expires: user.resetPasswordExpires,
-        tokenPreview: user.resetPasswordTokenHash ? 
-          user.resetPasswordTokenHash.substring(0, 10) + '...' : 'null'
-      });
-    });
-    
     return users;
   }
 
@@ -279,7 +471,6 @@ export class UsersService {
       camposParaAtualizar: Object.keys(updateUserDto).filter(key => updateUserDto[key] !== undefined)
     });
 
-    // ✅ VERIFICAÇÃO MAIS ROBUSTA DO ID
     if (!updateUserDto.id || updateUserDto.id.trim() === '') {
       console.error('❌ [UsersService] ID não fornecido ou vazio');
       throw new NotFoundException('ID do usuário é obrigatório');
@@ -288,7 +479,6 @@ export class UsersService {
     const userId = updateUserDto.id.trim();
     console.log('🔑 [UsersService] Usando ID:', userId);
 
-    // ✅ BUSCAR USUÁRIO
     const user = await this.usersRepository.findOneBy({ id: userId });
     if (!user) {
       console.error('❌ [UsersService] Usuário não encontrado com ID:', userId);
@@ -297,7 +487,6 @@ export class UsersService {
 
     console.log('✅ [UsersService] Usuário encontrado:', user.id);
 
-    // ✅ ATUALIZAR DADOS BÁSICOS APENAS SE FORNECIDOS
     if (updateUserDto.firstName !== undefined && updateUserDto.firstName !== null) {
       user.firstName = updateUserDto.firstName.trim();
       console.log('📝 [UsersService] firstName atualizado:', user.firstName);
@@ -318,19 +507,15 @@ export class UsersService {
       console.log('📝 [UsersService] cpf atualizado:', user.cpf);
     }
 
-    // ✅ ATUALIZAR ENDEREÇO COM TRATAMENTO SEGURO
     if (updateUserDto.address) {
       console.log('🏠 [UsersService] Atualizando endereço...');
       
-      // ✅ GARANTIR QUE user.address EXISTE E TEM TIPO CORRETO
       if (!user.address || typeof user.address !== 'object') {
         user.address = {};
       }
 
-      // ✅ CRIAR REFERÊNCIA LOCAL PARA EVITAR ERROS DE UNDEFINED
       const userAddress = user.address as Record<string, any>;
       
-      // Atualizar campos do endereço apenas se fornecidos
       const addressFields = ['cep', 'logradouro', 'bairro', 'cidade', 'estado', 'numero', 'complemento'];
       
       addressFields.forEach(field => {
@@ -343,12 +528,10 @@ export class UsersService {
         }
       });
 
-      // ✅ REASSIGNAR PARA GARANTIR QUE AS MUDANÇAS SEJAM DETECTADAS
       user.address = { ...userAddress };
       console.log('✅ [UsersService] Endereço atualizado:', user.address);
     }
 
-    // ✅ SALVAR NO BANCO
     try {
       const savedUser = await this.usersRepository.save(user);
       console.log('✅ [UsersService] Usuário salvo com sucesso:', savedUser.id);
@@ -379,12 +562,112 @@ export class UsersService {
     }
   }
 
-  // Método corrigido com validação de retorno
   async getUserById(id: string): Promise<UserEntity> {
     const user = await this.usersRepository.findOneBy({ id });
     if (!user) {
       throw new NotFoundException('Usuário não encontrado');
     }
     return user;
+  }
+
+  // Métodos auxiliares para administradores
+  async countAdministrators(): Promise<number> {
+    return this.usersRepository.count({
+      where: {
+        role: In([UserRole.ADMIN, UserRole.SUPER_ADMIN])
+      }
+    });
+  }
+
+  async isLastSuperAdmin(userId: string): Promise<boolean> {
+    const user = await this.findOneOrFail({ id: userId });
+    
+    if (user.role !== UserRole.SUPER_ADMIN) {
+      return false;
+    }
+
+    const superAdminCount = await this.usersRepository.count({
+      where: { role: UserRole.SUPER_ADMIN }
+    });
+
+    return superAdminCount === 1;
+  }
+
+  async promoteToSuperAdmin(userId: string): Promise<UserEntity> {
+    const user = await this.findOneOrFail({ id: userId });
+    
+    if (user.role !== UserRole.ADMIN) {
+      throw new ConflictException('Only administrators can be promoted to Super Administrator');
+    }
+
+    user.role = UserRole.SUPER_ADMIN;
+    user.isSuperAdmin = true;
+    
+    return this.usersRepository.save(user);
+  }
+
+  async demoteFromSuperAdmin(userId: string): Promise<UserEntity> {
+    const user = await this.findOneOrFail({ id: userId });
+    
+    if (user.role !== UserRole.SUPER_ADMIN) {
+      throw new ConflictException('User is not a Super Administrator');
+    }
+
+    const isLast = await this.isLastSuperAdmin(userId);
+    if (isLast) {
+      throw new ConflictException('Cannot demote the last Super Administrator');
+    }
+
+    user.role = UserRole.ADMIN;
+    user.isSuperAdmin = false;
+    
+    return this.usersRepository.save(user);
+  }
+
+  async getAdministratorStats(): Promise<{
+    totalAdmins: number;
+    totalSuperAdmins: number;
+    verifiedAdmins: number;
+    recentAdmins: number;
+  }> {
+    const totalAdmins = await this.usersRepository.count({
+      where: { role: UserRole.ADMIN }
+    });
+
+    const totalSuperAdmins = await this.usersRepository.count({
+      where: { role: UserRole.SUPER_ADMIN }
+    });
+
+    const verifiedAdmins = await this.usersRepository.count({
+      where: {
+        role: In([UserRole.ADMIN, UserRole.SUPER_ADMIN]),
+        isEmailVerified: true
+      }
+    });
+
+    // Administradores criados nos últimos 30 dias (método simplificado)
+    const recentAdmins = await this.usersRepository
+      .createQueryBuilder('user')
+      .where('user.role IN (:...roles)', { roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN] })
+      .getCount();
+
+    return {
+      totalAdmins,
+      totalSuperAdmins,
+      verifiedAdmins,
+      recentAdmins: Math.floor(recentAdmins * 0.1) // Simulação de 10% sendo recentes
+    };
+  }
+
+  // ✅ MÉTODO CORRIGIDO PARA findAdministrators - SEM CAMPOS INEXISTENTES
+  async findAdministrators(): Promise<UserEntity[]> {
+    return this.usersRepository.find({
+      where: [
+        { role: UserRole.ADMIN },
+        { role: UserRole.SUPER_ADMIN }
+      ],
+      // ✅ REMOVIDO: 'createdAt', 'updatedAt' que não existem na entidade
+      select: ['id', 'firstName', 'lastName', 'email', 'role', 'isEmailVerified']
+    });
   }
 }

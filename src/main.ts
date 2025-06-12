@@ -146,6 +146,9 @@ async function bootstrap() {
     estado: 'text',
     numero: 'text',
     complemento: 'text',
+
+    telefone: 'text', // ← ADICIONAR
+    status: 'text',  
     
     // ✅ CAMPOS PARA OUTROS MÓDULOS
     descricao: 'text',

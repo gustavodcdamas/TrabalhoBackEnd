@@ -33,6 +33,7 @@ import { CsrfController } from './csrf.controller';
 import { RedisService } from 'src/config/redis/redis.service';
 import { RedisModule } from 'src/config/redis/redis.module';
 import { CacheModule } from '@nestjs/cache-manager';
+import { ClientesModule } from './modules/cliente/cliente.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { CacheModule } from '@nestjs/cache-manager';
     }),
     
     DbModule,
+    ClientesModule,
     UsersModule,
     AuthModule,
     EmailModule,

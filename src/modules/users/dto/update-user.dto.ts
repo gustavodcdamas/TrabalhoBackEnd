@@ -13,6 +13,10 @@ export class UpdateUserDto {
   firstName?: string;
 
   @IsOptional()
+  @IsEmail({}, { message: 'Email deve ser válido' })
+  email?: string;
+
+  @IsOptional()
   @IsString({ message: 'Sobrenome deve ser uma string' })
   @Length(1, 50, { message: 'Sobrenome deve ter entre 1 e 50 caracteres' })
   lastName?: string;

@@ -9,9 +9,13 @@ import { SyncController } from '../sync/sync-user-data.controller';
 import { SyncUserDataService } from '../sync/sync-user-data.service';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { LoggerModule } from '../logger/logger.module';
+import { RedisModule } from 'src/config/redis/redis.module';
 
 @Module({
   imports: [TypeOrmModule.forFeature([UserEntity]),
+  LoggerModule,
+  RedisModule,
   HttpModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

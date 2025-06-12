@@ -1,4 +1,4 @@
-import { BadRequestException, Get, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { UserEntity } from '../users/entities/user.entity';
@@ -10,11 +10,29 @@ import { MailService } from '../email/mail.service';
 import { ConfigService } from '@nestjs/config';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { UserRole } from '../../enums/user-role.enum';
-import { CreateUserDto } from '../users/dto/create-user.dto'; // Import adicionado
+import { CreateUserDto } from '../users/dto/create-user.dto';
+import { CreateAdminDto } from '../users/dto/create-admin.dto';
+import { BehaviorSubject, Observable } from 'rxjs';
+
+// ✅ INTERFACE PARA O USUÁRIO ATUAL
+interface CurrentUser {
+  id: string;
+  email: string;
+  role: string;
+  firstName?: string;
+  lastName?: string;
+  isSuperAdmin?: boolean;
+  isAdmin?: boolean;
+  isClient?: boolean;
+}
 
 @Injectable()
 export class AuthService {
   private deletionTokens = new Map<string, { email: string; expires: number }>();
+  
+  // ✅ ADICIONANDO SUPORTE AO getCurrentUser()
+  private currentUserSubject = new BehaviorSubject<CurrentUser | null>(null);
+  public currentUser$ = this.currentUserSubject.asObservable();
 
   constructor(
     private readonly userService: UsersService,
@@ -22,6 +40,21 @@ export class AuthService {
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
   ) {}
+
+  // ✅ PROPRIEDADE PARA COMPATIBILIDADE
+  get currentUser(): CurrentUser | null {
+    return this.currentUserSubject.value;
+  }
+
+  // ✅ MÉTODO PARA OBTER USUÁRIO ATUAL
+  getCurrentUser(): Observable<CurrentUser | null> {
+    return this.currentUser$;
+  }
+
+  // ✅ MÉTODO PARA DEFINIR USUÁRIO ATUAL
+  setCurrentUser(user: CurrentUser | null): void {
+    this.currentUserSubject.next(user);
+  }
 
   async requestAccountDeletion(email: string) {
     const user = await this.userService.findOneByEmail(email);
@@ -71,9 +104,6 @@ export class AuthService {
     }
 
     console.log('[AuthService] Comparando senhas...');
-    console.log(`[AuthService] Senha fornecida: ${pass}`);
-    console.log(`[AuthService] Hash armazenado: ${user.password}`);
-
     const isPasswordValid = await bcrypt.compare(pass, user.password);
     
     if (!isPasswordValid) {
@@ -112,6 +142,19 @@ export class AuthService {
       const token = this.jwtService.sign(payload);
       console.log('[AuthService] JWT criado com sucesso');
 
+      // ✅ DEFINIR USUÁRIO ATUAL APÓS LOGIN
+      const currentUser: CurrentUser = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        isSuperAdmin: user.isSuperAdmin,
+        isAdmin: user.isAdmin,
+        isClient: user.isClient
+      };
+      this.setCurrentUser(currentUser);
+
       return {
         access_token: token,
         user: {
@@ -129,9 +172,24 @@ export class AuthService {
     }
   }
 
+  // ✅ MÉTODO PARA LOGOUT
+  logout(): void {
+    this.setCurrentUser(null);
+  }
+
+  // ✅ MÉTODO PARA VERIFICAR SE ESTÁ LOGADO
+  isLoggedIn(): boolean {
+    return this.currentUser !== null;
+  }
+
+  // ✅ MÉTODO PARA VERIFICAR ROLE
+  hasRole(role: string): boolean {
+    return this.currentUser?.role === role;
+  }
+
   async validateToken(token: string): Promise<UserEntity | null> {
     try {
-      const payload = this.jwtService.verify(token); // Verifica o token JWT
+      const payload = this.jwtService.verify(token);
       console.log('[AuthService] Token JWT válido:', payload);
 
       const user = await this.userService.findOneByEmail(payload.email);
@@ -139,6 +197,19 @@ export class AuthService {
         console.error('[AuthService] Usuário não encontrado para o token:', payload.email);
         return null;
       }
+
+      // ✅ ATUALIZAR USUÁRIO ATUAL AO VALIDAR TOKEN
+      const currentUser: CurrentUser = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        isSuperAdmin: user.isSuperAdmin,
+        isAdmin: user.isAdmin,
+        isClient: user.isClient
+      };
+      this.setCurrentUser(currentUser);
 
       return user;
     } catch (error) {
@@ -153,7 +224,6 @@ export class AuthService {
       throw new NotFoundException('Usuário não encontrado');
     }
 
-    // ✅ GERAR APENAS O TOKEN
     const plainToken = crypto.randomBytes(32).toString('hex');
     const expires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutos
 
@@ -163,7 +233,6 @@ export class AuthService {
       emailVerified: user.emailVerified
     });
 
-    // ✅ PASSAR APENAS O TOKEN, NÃO A URL COMPLETA
     await this.mailService.sendPasswordResetEmail(user.email, plainToken);
 
     return { message: 'E-mail de redefinição enviado' };
@@ -186,19 +255,18 @@ export class AuthService {
       throw new BadRequestException('Token inválido ou expirado');
     }
 
-    // Corrigido: incluindo emailVerified para satisfazer UpdateUserDto
     await this.userService.update(user.id, {
       password: await bcrypt.hash(newPassword, 10),
       resetPasswordTokenHash: null,
       resetPasswordExpires: null,
-      emailVerified: user.emailVerified // Incluído campo obrigatório
+      emailVerified: user.emailVerified
     });
 
     return { message: 'Senha redefinida com sucesso' };
   }
 
   async register(registerDto: RegisterDto) {
-    // Criando CreateUserDto completo para resolver incompatibilidade
+    // Criando CreateUserDto completo
     const createUserDto: CreateUserDto = {
       ...registerDto,
       resetPasswordTokenHash: null,
@@ -207,11 +275,6 @@ export class AuthService {
     };
 
     const user = await this.userService.create(createUserDto);
-    user.email = registerDto.email;
-    user.firstName = registerDto.firstName;
-    user.lastName = registerDto.lastName;
-    user.password = registerDto.password;
-    user.role = UserRole.CLIENT;
 
     if (!user.emailVerificationToken) {
       throw new InternalServerErrorException('Erro ao gerar token de verificação');
@@ -231,42 +294,22 @@ export class AuthService {
     }
   }
 
-  async registerAdmin(registerDto: RegisterDto) {
-    // Criando CreateUserDto completo para resolver incompatibilidade
-    const createUserDto: CreateUserDto = {
-      ...registerDto,
-      resetPasswordTokenHash: null,
-      resetPasswordExpires: null,
-      emailVerified: false
-    };
-
-    const user = await this.userService.create(createUserDto);
-    user.email = registerDto.email;
-    user.firstName = registerDto.firstName;
-    user.lastName = registerDto.lastName;
-    user.password = registerDto.password;
-    user.role = UserRole.ADMIN;
-
-    if (!user.emailVerificationToken) {
-      throw new InternalServerErrorException('Erro ao gerar token de verificação');
-    }
-
+  // ✅ MÉTODO CORRIGIDO PARA REGISTRAR ADMINISTRADORES
+  async registerAdmin(createAdminDto: CreateAdminDto) {
     try {
-      await this.mailService.sendVerificationEmail(
-        user.email, 
-        user.emailVerificationToken
-      );
+      // Usar o método específico para criar administradores
+      const admin = await this.userService.createAdmin(createAdminDto);
       
-      const { password, emailVerificationToken, ...result } = user;
+      // Administradores são criados já verificados, não precisam de email de verificação
+      const { password, ...result } = admin;
       return result;
     } catch (error) {
-      await this.userService.removeByEmail(user.email);
-      throw new BadRequestException('Falha ao enviar email de verificação');
+      console.error('[AuthService] Erro ao registrar administrador:', error);
+      throw new BadRequestException('Falha ao criar administrador: ' + error.message);
     }
   }
 
   async verifyEmail(token: string): Promise<boolean> {
     return this.userService.verifyEmail(token);
   }
-  
 }
