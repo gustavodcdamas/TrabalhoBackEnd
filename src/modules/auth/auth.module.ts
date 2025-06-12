@@ -11,6 +11,7 @@ import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import * as nodemailer from 'nodemailer';
 import { MailService } from '../email/mail.service';
+import { HttpModule } from '@nestjs/axios';
 
 require('dotenv').config();
 
@@ -19,6 +20,7 @@ const jwtSecret = process.env.JWT_SECRET;
 @Module({
   imports: [
     ConfigModule.forRoot(),
+    HttpModule,
     forwardRef(() => UsersModule),
     PassportModule,
     JwtModule.registerAsync({

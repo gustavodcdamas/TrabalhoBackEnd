@@ -30,7 +30,7 @@ import * as nodemailer from 'nodemailer';
 })
 
 export class EmailModule {
-    constructor() {
+  constructor() {
     console.log('📦 Email Module inicializado');
   }
 }

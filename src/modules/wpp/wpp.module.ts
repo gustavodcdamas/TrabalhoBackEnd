@@ -18,4 +18,8 @@ import { WppService } from './wpp.service';
   providers: [WppService],
   exports: [WppService],
 })
-export class WppModule {}
+export class WppModule {
+  constructor() {
+    console.log('📦 WPP Module inicializado');
+  }
+}

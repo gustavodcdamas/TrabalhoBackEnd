@@ -9,7 +9,8 @@ import * as bcrypt from 'bcrypt';
 import { MailService } from '../email/mail.service';
 import { ConfigService } from '@nestjs/config';
 import { LoginResponseDto } from './dto/login-response.dto';
-import { UserRole } from '../users/enums/user-role.enum';
+import { UserRole } from '../../enums/user-role.enum';
+import { CreateUserDto } from '../users/dto/create-user.dto'; // Import adicionado
 
 @Injectable()
 export class AuthService {
@@ -155,9 +156,11 @@ export class AuthService {
     const plainToken = crypto.randomBytes(32).toString('hex');
     const expires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutos
 
+    // Corrigido: incluindo emailVerified para satisfazer UpdateUserDto
     await this.userService.update(user.id, {
       resetPasswordTokenHash: await bcrypt.hash(plainToken, 10),
       resetPasswordExpires: expires,
+      emailVerified: user.emailVerified // Incluído campo obrigatório
     });
 
     await this.mailService.sendPasswordResetEmail(user.email, plainToken);
@@ -182,17 +185,27 @@ export class AuthService {
       throw new BadRequestException('Token inválido ou expirado');
     }
 
+    // Corrigido: incluindo emailVerified para satisfazer UpdateUserDto
     await this.userService.update(user.id, {
       password: await bcrypt.hash(newPassword, 10),
       resetPasswordTokenHash: null,
       resetPasswordExpires: null,
+      emailVerified: user.emailVerified // Incluído campo obrigatório
     });
 
     return { message: 'Senha redefinida com sucesso' };
   }
 
   async register(registerDto: RegisterDto) {
-    const user = await this.userService.create(registerDto);
+    // Criando CreateUserDto completo para resolver incompatibilidade
+    const createUserDto: CreateUserDto = {
+      ...registerDto,
+      resetPasswordTokenHash: null,
+      resetPasswordExpires: null,
+      emailVerified: false
+    };
+
+    const user = await this.userService.create(createUserDto);
     user.email = registerDto.email;
     user.firstName = registerDto.firstName;
     user.lastName = registerDto.lastName;
@@ -218,7 +231,15 @@ export class AuthService {
   }
 
   async registerAdmin(registerDto: RegisterDto) {
-    const user = await this.userService.create(registerDto);
+    // Criando CreateUserDto completo para resolver incompatibilidade
+    const createUserDto: CreateUserDto = {
+      ...registerDto,
+      resetPasswordTokenHash: null,
+      resetPasswordExpires: null,
+      emailVerified: false
+    };
+
+    const user = await this.userService.create(createUserDto);
     user.email = registerDto.email;
     user.firstName = registerDto.firstName;
     user.lastName = registerDto.lastName;

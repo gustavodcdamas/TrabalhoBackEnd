@@ -1,42 +1,38 @@
-import { ApiProperty } from "@nestjs/swagger";
 import { IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
-import { Column } from "typeorm";
+import { ApiProperty } from "@nestjs/swagger";
 
 export class CreateServicosDto {
-  @ApiProperty({
-    example: 'Design Gráfico',
-    description: 'Título do serviço',
-  })
-  @Column()
-  @IsNotEmpty()
+  @IsOptional() // Opcional se você vai gerar automaticamente no service
   @IsString()
   @MinLength(2)
-  @MaxLength(50, { message: 'O nome não pode ter mais de 50 caracteres' })
-  titulo: string;
+  @MaxLength(50, { message: 'O titulo não pode ter mais de 50 caracteres' })
+  titulo?: string;
 
-  @ApiProperty({
-    example: 'imagem.jpg, imagem.png, imagem.jpeg',
-    description: 'Imagem do serviço',
-  })
-  @Column()
+  @IsNotEmpty({ message: 'Cliente é obrigatório' })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(50, { message: 'O cliente não pode ter mais de 50 caracteres' })
+  cliente: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+
   @IsOptional()
   @IsString()
   @MinLength(2)
-  @MaxLength(50, { message: 'O nome não pode ter mais de 50 caracteres' })
+  @MaxLength(100, { message: 'O ícone não pode ter mais de 100 caracteres' })
   icon?: string;
 
-  @ApiProperty({
-    example: 'Criação de identidade visual',
-    description: 'Descrição detalhada do serviço',
-  })
-  @Column()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'Descrição é obrigatória' })
   @IsString()
   @MinLength(2)
-  @MaxLength(200, { message: 'A mensagem não pode ter mais de 200 caracteres' })
+  @MaxLength(200, { message: 'A descrição não pode ter mais de 200 caracteres' })
   descricao: string;
 }
 
 export class ServicosWithImageDto extends CreateServicosDto {
+  @ApiProperty({ type: 'string', format: 'binary', description: 'Arquivo de ícone' })
   file?: Express.Multer.File;
+  declare icon?: string;
 }

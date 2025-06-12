@@ -1,15 +1,33 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { UsersService } from './users.service';
+import { HttpModule } from '@nestjs/axios';
 import { UsersController } from './users.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserEntity } from './entities/user.entity';
 import { AuthModule } from '../auth/auth.module';
+import { SyncController } from '../sync/sync-user-data.controller';
+import { SyncUserDataService } from '../sync/sync-user-data.service';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [TypeOrmModule.forFeature([UserEntity]),
+  HttpModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+        signOptions: { expiresIn: '1d' },
+      }),
+      inject: [ConfigService],
+    }),
   forwardRef(() => AuthModule)],
-  controllers: [UsersController],
-  providers: [UsersService],
-  exports: [UsersService, TypeOrmModule],
+  controllers: [UsersController, SyncController  ],
+  providers: [UsersService, SyncUserDataService  ],
+  exports: [UsersService, TypeOrmModule, SyncUserDataService  ],
 })
-export class UsersModule {}
+export class UsersModule {
+  constructor() {
+    console.log('📦 Users Module inicializado');
+  }
+}

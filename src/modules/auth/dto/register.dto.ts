@@ -13,7 +13,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from "crypto";
 import { MessagesHelper } from '../../../common/helper/messages.helper';
 import { RegExHelper } from '../../../common/helper/regex.helper';
-import { UserRole } from 'src/modules/users/enums/user-role.enum';
+import { UserRole } from '../../../enums/user-role.enum';
 
 export class RegisterDto {
   @IsEmail()

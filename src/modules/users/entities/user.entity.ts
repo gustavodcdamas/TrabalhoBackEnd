@@ -11,7 +11,17 @@ import {
 import { IsEmail, IsNotEmpty, Length, MaxLength } from 'class-validator';
 import * as bcrypt from 'bcrypt';
 import * as crypto from "crypto";
-import { UserRole } from '../enums/user-role.enum';
+import { UserRole } from '../../../enums/user-role.enum';
+
+export interface AddressInterface {
+  cep?: string;
+  logradouro?: string;
+  bairro?: string;
+  cidade?: string;
+  estado?: string;
+  numero?: string;
+  complemento?: string;
+}
 
 @Entity({ name: 'users' })
 export class UserEntity {
@@ -39,6 +49,11 @@ export class UserEntity {
     default: 'client'
   })
   role: UserRole;
+
+  // Adicionado campo username que estava sendo usado no service
+  @Column({ nullable: true })
+  @MaxLength(50)
+  username?: string;
 
   @BeforeInsert()
   @BeforeUpdate()
@@ -70,6 +85,12 @@ export class UserEntity {
   @Column({ type: 'timestamp', nullable: true })
   resetPasswordExpires: Date | null;
 
+  @Column({ default: false, select: false })
+  emailVerified: boolean;
+
+  @Column({ default: false, select: false })
+  accountDisabled?: boolean;
+
   async setResetToken(token: string): Promise<void> {
     this.resetPasswordTokenHash = await bcrypt.hash(token, 10);
     this.resetPasswordExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutos
@@ -90,16 +111,55 @@ export class UserEntity {
     this.resetPasswordExpires = null;
   }
 
-
   @Column()
   @IsNotEmpty()
   @MaxLength(50)
   firstName: string;
 
   @Column()
-  @IsNotEmpty()
   @MaxLength(50)
   lastName: string;
+
+  // Corrigido: cpf e cep devem ser string para permitir replace()
+  @Column({ nullable: true })
+  @MaxLength(50)
+  cpf?: string;
+
+  @Column({ nullable: true })
+  @MaxLength(50)
+  cep?: string;
+
+  @Column({ nullable: true })
+  @MaxLength(50)
+  logradouro?: string;
+
+  @Column({ nullable: true })
+  @MaxLength(50)
+  bairro?: string;
+
+  @Column({ nullable: true })
+  @MaxLength(50)
+  cidade?: string;
+
+  @Column({ nullable: true })
+  @MaxLength(50)
+  estado?: string;
+
+  @Column({ nullable: true })
+  @MaxLength(50)
+  numero?: string;
+
+  // Adicionado campo address como JSON para resolver erro do service
+  @Column({ type: 'json', nullable: true })
+  address?: {
+    cep?: string;
+    logradouro?: string;
+    bairro?: string;
+    cidade?: string;
+    estado?: string;
+    numero?: string;
+    complemento?: string;
+  };
 
   @Column({ select: false })
   @Length(8, 100)
@@ -130,19 +190,7 @@ export class UserEntity {
   updated_at: Date;
 
   @DeleteDateColumn({ type: 'timestamp', nullable: true })
-  @Column({ type: 'timestamp', nullable: true })
   deleted_at: Date;
-
-  /*@BeforeInsert()
-  async hashPassword(): Promise<void> {
-    if (this.password) {
-      this.password = (await hash(this.password, 10)) as string;
-    }
-  }
-
-  async comparePassword(attempt: string): Promise<boolean> {
-    return (await compare(attempt, this.password)) as boolean;
-  }*/
 
   @BeforeInsert()
   async hashPassword() {
@@ -152,5 +200,4 @@ export class UserEntity {
   async comparePassword(attempt: string): Promise<boolean> {
     return await bcrypt.compare(attempt, this.password);
   }
-  
 }

@@ -21,7 +21,7 @@ import { AuthModule } from '../auth/auth.module';
   exports: [UploadsService],
 })
 export class UploadsModule {
-    constructor() {
+  constructor() {
     console.log('📦 Uploads module inicializado');
   }
 }
