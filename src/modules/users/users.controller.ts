@@ -160,13 +160,13 @@ export class UsersController {
   @ApiBearerAuth()
   async update(
     @Param('id') id: string,
-    @Body() updateUserDto: any, // ✅ Usar 'any' para bypass do sanitizador
+    @Body() updateUserDto: UpdateUserDto, // ✅ Voltar ao DTO tipado
     @Req() req: RequestWithUser
   ) {
     console.log('🔄 [UsersController] Iniciando atualização:', {
       urlId: id,
       tokenUserId: req.user.id,
-      bodyRecebido: updateUserDto
+      dtoRecebido: updateUserDto
     });
 
     try {
@@ -177,28 +177,13 @@ export class UsersController {
         throw new BadRequestException('Token de autenticação inválido');
       }
 
-      // ✅ CRIAR DTO MANUALMENTE COM ID CORRETO
-      const safeUpdateDto: UpdateUserDto = {
-        id: actualUserId, // ✅ FORÇAR ID CORRETO
-        firstName: updateUserDto.firstName,
-        lastName: updateUserDto.lastName,
-        username: updateUserDto.username,
-        cpf: updateUserDto.cpf,
-        address: updateUserDto.address,
-        // Adicionar outros campos conforme necessário
-        cep: updateUserDto.cep,
-        logradouro: updateUserDto.logradouro,
-        bairro: updateUserDto.bairro,
-        cidade: updateUserDto.cidade,
-        estado: updateUserDto.estado,
-        numero: updateUserDto.numero,
-        complemento: updateUserDto.complemento
-      };
-
-      console.log('🔑 [UsersController] DTO criado manualmente:', {
-        id: safeUpdateDto.id,
-        hasId: !!safeUpdateDto.id,
-        camposIncluidos: Object.keys(safeUpdateDto).filter(key => safeUpdateDto[key] !== undefined)
+      // ✅ FORÇAR O ID CORRETO NO DTO (GARANTIR QUE SANITIZADOR NÃO REMOVEU)
+      updateUserDto.id = actualUserId;
+      
+      console.log('🔑 [UsersController] DTO após forçar ID:', {
+        id: updateUserDto.id,
+        hasId: !!updateUserDto.id,
+        camposRecebidos: Object.keys(updateUserDto).filter(key => updateUserDto[key] !== undefined)
       });
 
       // Verificar se o usuário existe
@@ -207,61 +192,55 @@ export class UsersController {
 
       // ✅ VALIDAÇÕES OPCIONAIS
       
-      // Validar CPF se fornecido
-      if (safeUpdateDto.cpf && safeUpdateDto.cpf.trim()) {
-        const cpfLimpo = safeUpdateDto.cpf.replace(/\D/g, '');
-        if (cpfLimpo.length !== 11) {
-          throw new BadRequestException('CPF deve ter 11 dígitos');
-        }
-        safeUpdateDto.cpf = cpfLimpo;
-        console.log('✅ [UsersController] CPF validado:', cpfLimpo);
+      // CPF já foi transformado pelo DTO (@Transform)
+      if (updateUserDto.cpf && updateUserDto.cpf.length !== 11) {
+        throw new BadRequestException('CPF deve ter 11 dígitos');
       }
 
-      // ✅ VALIDAÇÃO DE CEP MAIS FLEXÍVEL
-      if (safeUpdateDto.address?.cep) {
+      // ✅ VALIDAÇÃO DE CEP
+      if (updateUserDto.address?.cep) {
         console.log('🔍 [UsersController] Validando endereço...');
         
-        const cep = safeUpdateDto.address.cep.replace(/\D/g, '');
+        const cep = updateUserDto.address.cep.replace(/\D/g, '');
         if (cep.length !== 8) {
           throw new BadRequestException('CEP deve ter 8 dígitos');
         }
         
-        // Validar com API dos Correios apenas se todos os dados estiverem preenchidos
-        if (safeUpdateDto.address.logradouro && 
-            safeUpdateDto.address.bairro && 
-            safeUpdateDto.address.cidade && 
-            safeUpdateDto.address.estado) {
+        // Validar com API dos Correios se dados completos
+        if (updateUserDto.address.logradouro && 
+            updateUserDto.address.bairro && 
+            updateUserDto.address.cidade && 
+            updateUserDto.address.estado) {
           
           try {
             const cepValido = await this.usersService.validarCepComApiCorreios(
               cep,
-              safeUpdateDto.address
+              updateUserDto.address
             );
 
             if (!cepValido) {
               console.log('⚠️ [UsersController] CEP não confere com dados informados');
-              // Não bloquear, apenas alertar no log
             } else {
               console.log('✅ [UsersController] CEP validado com sucesso');
             }
           } catch (cepError) {
-            console.log('⚠️ [UsersController] Erro na validação de CEP (API externa), continuando...');
+            console.log('⚠️ [UsersController] Erro na validação de CEP, continuando...');
           }
         }
       }
 
-      // ✅ LOG DOS DADOS FINAIS ANTES DE ENVIAR
+      // ✅ LOG DOS DADOS FINAIS
       console.log('📝 [UsersController] Dados finais para atualização:', {
-        id: safeUpdateDto.id, // ✅ Agora deve ter valor!
-        hasFirstName: !!safeUpdateDto.firstName,
-        hasLastName: !!safeUpdateDto.lastName,
-        hasUsername: !!safeUpdateDto.username,
-        hasCpf: !!safeUpdateDto.cpf,
-        hasAddress: !!safeUpdateDto.address
+        id: updateUserDto.id,
+        hasFirstName: !!updateUserDto.firstName,
+        hasLastName: !!updateUserDto.lastName,
+        hasUsername: !!updateUserDto.username,
+        hasCpf: !!updateUserDto.cpf,
+        hasAddress: !!updateUserDto.address
       });
 
       // ✅ EXECUTAR ATUALIZAÇÃO
-      const updatedUser = await this.usersService.updateUser(safeUpdateDto);
+      const updatedUser = await this.usersService.updateUser(updateUserDto);
       console.log('✅ [UsersController] Atualização concluída com sucesso');
       
       return {
@@ -283,7 +262,6 @@ export class UsersController {
       throw new BadRequestException(`Erro ao atualizar usuário: ${error.message}`);
     }
   }
-
   @UseGuards(JwtAuthGuard)
   @Delete(':email')
   @HttpCode(HttpStatus.NO_CONTENT)

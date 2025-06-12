@@ -30,7 +30,7 @@ export class MailService {
     async sendVerificationEmail(to: string, token: string): Promise<void> {
         const appUrl = this.configService.get<string>('BASE_URL') || 'http://localhost:3000';
         const verificationUrl = `${appUrl}/api/auth/verify-email?token=${token}`;
-        const from = this.configService.get<string>('EMAIL_FROM') || '"Agência Cuei" <no-reply@cuei.com.br>';
+        const from = this.configService.get<string>('SMTP_FROM') || '"Agência Cuei" <no-reply@cuei.com.br>';
 
         try {
             await this.transporter.sendMail({
@@ -68,7 +68,7 @@ export class MailService {
     async sendMail(options: { to: string; subject: string; html: string; text?: string }): Promise<void> {
         try {
             await this.transporter.sendMail({
-            from: this.configService.get<string>('EMAIL_FROM') || '"Agência Cuei" <levetudo464@gmail.com>',
+            from: this.configService.get<string>('SMTP_FROM') || '"Agência Cuei" <levetudo464@gmail.com>',
             ...options
             });
         } catch (error) {
@@ -80,7 +80,7 @@ export class MailService {
     async sendPasswordResetEmail(to: string, token: string): Promise<void> {
     const appUrl = this.configService.get<string>('BASE_URL') || 'http://localhost:3000';
     const resetUrl = `${appUrl}/api/auth/reset-password?token=${token}`;
-    const from = this.configService.get<string>('EMAIL_FROM') || '"Agência Cuei" <no-reply@cuei.com.br>';
+    const from = this.configService.get<string>('SMTP_FROM') || '"Agência Cuei" <no-reply@cuei.com.br>';
 
     try {
       await this.transporter.sendMail({

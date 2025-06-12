@@ -130,16 +130,38 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
     new SanitizePipe({
-      email: 'email',
-      nome: 'name',
-      name: 'name',
-      descricao: 'text',
-      title: 'text',
-      lastName: 'text',
-      firstName: 'text',
-      titulo: 'text',
-      senha: 'none',
-      password: 'none',
+    // ✅ CAMPOS PERMITIDOS PARA USERS
+    id: 'uuid', // ✅ ADICIONADO - permite UUIDs
+    email: 'email',
+    nome: 'name',
+    name: 'name',
+    firstName: 'text',
+    lastName: 'text',
+    username: 'text', // ✅ ADICIONADO
+    cpf: 'numeric', // ✅ ADICIONADO
+    cep: 'numeric', // ✅ ADICIONADO
+    logradouro: 'text',
+    bairro: 'text',
+    cidade: 'text',
+    estado: 'text',
+    numero: 'text',
+    complemento: 'text',
+    
+    // ✅ CAMPOS PARA OUTROS MÓDULOS
+    descricao: 'text',
+    title: 'text',
+    titulo: 'text',
+    senha: 'none',
+    password: 'none',
+    
+    // ✅ CAMPOS PARA ENDEREÇO NESTED
+    'address.cep': 'numeric',
+    'address.logradouro': 'text',
+    'address.bairro': 'text',
+    'address.cidade': 'text',
+    'address.estado': 'text',
+    'address.numero': 'text',
+    'address.complemento': 'text',
     }),
   );
 
