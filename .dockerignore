@@ -1,0 +1,274 @@
+node_modules
+dist
+.env
+docker-compose.yml
+.git
+.gitignore
+*.md
+*.log
+.vscode
+.idea
+# Dependências
+node_modules
+npm-debug.log*
+
+# Build outputs
+dist
+build
+
+# Logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode
+.idea
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Angular específico
+e2e
+*.tgz
+.angular
+
+# Dependências
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Build outputs
+dist
+build
+lib
+
+# Cache
+.npm
+.yarn
+.pnp.*
+
+# Logs
+*.log
+logs
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage
+coverage
+*.lcov
+.nyc_output
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE e editores
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# OS gerados
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Testing
+test/
+e2e/
+*.spec.ts
+*.e2e-spec.ts
+jest.config.js
+.jest/
+
+# Documentation
+README.md
+docs/
+*.md
+CHANGELOG.md
+LICENSE
+
+# NestJS específico
+.nest/
+nest-cli.json
+
+# TypeScript
+*.tsbuildinfo
+tsconfig*.json
+!tsconfig.json
+
+# ESLint/Prettier
+.eslintrc.js
+.prettierrc
+.prettierignore
+
+# Outros
+.gitkeep
+.keep
+*.tgz
+.editorconfig
+
+node_modules
+dist
+.env
+docker-compose.yml
+.git
+.gitignore
+*.md
+*.log
+.vscode
+.idea
+
+# Dependências
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Build outputs
+dist
+build
+lib
+
+# Cache
+.npm
+.yarn
+.pnp.*
+
+# Logs
+*.log
+logs
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage
+coverage
+*.lcov
+.nyc_output
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE e editores
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# OS gerados
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Testing - IMPORTANTE: Excluir do build Docker
+test/
+e2e/
+**/*.spec.ts
+**/*.test.ts
+**/*.e2e-spec.ts
+jest.config.js
+.jest/
+
+# Documentation
+README.md
+docs/
+*.md
+CHANGELOG.md
+LICENSE
+
+# NestJS específico
+.nest/
+nest-cli.json
+
+# TypeScript
+*.tsbuildinfo
+tsconfig*.json
+!tsconfig.json
+
+# ESLint/Prettier
+.eslintrc.js
+.prettierrc
+.prettierignore
+
+# Outros
+.gitkeep
+.keep
+*.tgz
+.editorconfig
+
+# Uploads (se não quiser copiar para a imagem)
+uploads/
