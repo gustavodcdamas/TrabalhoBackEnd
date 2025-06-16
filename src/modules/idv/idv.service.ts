@@ -72,33 +72,28 @@ export class IdvService {
     try {
       const { status, search, page = 1, limit = 10 } = options;
       
-      this.logger.log(`📥 Buscando IDVs com filtros: ${JSON.stringify(options)}`, 'IdvService');
+      console.log('🔍 findAll usando padrão LANDING:', { status, search, page, limit });
       
-      // Se não há filtros, tentar cache
-      if (!status && !search && page === 1 && limit === 10) {
-        const cached = await this.cacheManager.get<Idv[]>(this.CACHE_KEY_IDV);
-        if (cached) {
-          this.logger.log('📦 Dados obtidos do cache', 'IdvService');
-          return cached;
-        }
-      }
-
-      // Construir query
+      // ✅ USAR QUERY BUILDER COMO NO LANDING
       const queryBuilder = this.idvRepository.createQueryBuilder('idv');
       
-      // Filtrar por status
+      // ✅ IMPORTANTE: Incluir deleted_at IS NULL explicitamente
+      queryBuilder.where('idv.deleted_at IS NULL');
+      
+      // Filtrar por status se especificado
       if (status && status !== 'all') {
         queryBuilder.andWhere('idv.status = :status', { status });
-        this.logger.log(`🔍 Aplicando filtro de status: ${status}`, 'IdvService');
+      } else {
+        // Se não especificado, buscar apenas ativos
+        queryBuilder.andWhere('idv.status = :status', { status: 'ativo' });
       }
       
-      // Filtrar por busca
+      // Filtrar por busca se especificada
       if (search) {
         queryBuilder.andWhere(
           '(idv.titulo ILIKE :search OR idv.cliente ILIKE :search OR idv.descricao ILIKE :search)',
           { search: `%${search}%` }
         );
-        this.logger.log(`🔍 Aplicando busca: ${search}`, 'IdvService');
       }
       
       // Ordenar por data de criação (mais recentes primeiro)
@@ -106,23 +101,23 @@ export class IdvService {
       
       // Paginação
       if (page && limit) {
-        const skip = (page - 1) * limit;
-        queryBuilder.skip(skip).take(limit);
-        this.logger.log(`📄 Aplicando paginação: página ${page}, limite ${limit}`, 'IdvService');
+        queryBuilder.skip((page - 1) * limit).take(limit);
       }
-
+      
       const result = await queryBuilder.getMany();
       
-      // Cachear apenas se não há filtros
+      console.log('📊 Resultado com query builder:', result.length, 'registros');
+      
+      // ✅ CACHEAR NO REDIS APENAS PARA CONSULTA PADRÃO
       if (!status && !search && page === 1 && limit === 10) {
-        await this.cacheManager.set(this.CACHE_KEY_IDV, result, this.CACHE_TTL);
-        this.logger.log('💾 Resultado armazenado em cache', 'IdvService');
+        await this.redisService.set(this.CACHE_KEY_IDV, result, this.CACHE_TTL);
+        console.log('💾 Dados salvos no Redis cache');
       }
       
-      this.logger.log(`✅ Encontradas ${result.length} IDVs`, 'IdvService');
       return result;
 
     } catch (error) {
+      console.error('❌ Erro em findAll:', error);
       this.logger.error(`❌ Erro ao buscar IDVs: ${error.message}`, error.stack, 'IdvService');
       throw new InternalServerErrorException('Erro ao buscar projetos de identidade visual');
     }

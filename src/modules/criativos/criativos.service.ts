@@ -71,30 +71,43 @@ export class CriativosService {
     try {
       const { status, search, page = 1, limit = 10 } = options;
       
-      console.log('🔍 findAll chamado com opções:', { status, search, page, limit });
+      console.log('🔍 findAll usando padrão LANDING:', { status, search, page, limit });
       
-      // ✅ TENTAR CACHE REDIS PRIMEIRO
-      if (!status && !search && page === 1 && limit === 10) {
-        const cached = await this.redisService.get<Criativo[]>(this.CACHE_KEY_CRIATIVOS);
-        if (cached && Array.isArray(cached)) {
-          console.log('✅ Dados obtidos do Redis cache:', cached.length, 'itens');
-          return cached;
-        }
+      // ✅ USAR QUERY BUILDER COMO NO LANDING
+      const queryBuilder = this.criativosRepository.createQueryBuilder('criativo');
+      
+      // ✅ IMPORTANTE: Incluir deleted_at IS NULL explicitamente
+      queryBuilder.where('criativo.deleted_at IS NULL');
+      
+      // Filtrar por status se especificado
+      if (status && status !== 'all') {
+        queryBuilder.andWhere('criativo.status = :status', { status });
+      } else {
+        // Se não especificado, buscar apenas ativos
+        queryBuilder.andWhere('criativo.status = :status', { status: 'ativo' });
+      }
+      
+      // Filtrar por busca se especificada
+      if (search) {
+        queryBuilder.andWhere(
+          '(criativo.titulo ILIKE :search OR criativo.cliente ILIKE :search OR criativo.descricao ILIKE :search)',
+          { search: `%${search}%` }
+        );
+      }
+      
+      // Ordenar por data de criação (mais recentes primeiro)
+      queryBuilder.orderBy('criativo.dataCriacao', 'DESC');
+      
+      // Paginação
+      if (page && limit) {
+        queryBuilder.skip((page - 1) * limit).take(limit);
       }
 
-      console.log('🗄️ Buscando dados no banco...');
+      const result = await queryBuilder.getMany();
       
-      // Buscar do banco
-      const result = await this.criativosRepository.find({
-        where: { status: 'ativo' },
-        order: { dataCriacao: 'DESC' },
-        take: limit,
-        skip: (page - 1) * limit
-      });
+      console.log('📊 Resultado com query builder:', result.length, 'registros');
       
-      console.log('📊 Dados do banco:', result.length, 'itens');
-      
-      // ✅ SALVAR NO REDIS
+      // Cachear se necessário
       if (!status && !search && page === 1 && limit === 10) {
         await this.redisService.set(this.CACHE_KEY_CRIATIVOS, result, this.CACHE_TTL);
       }
@@ -102,7 +115,7 @@ export class CriativosService {
       return result;
 
     } catch (error) {
-      console.error('❌ Erro geral:', error);
+      console.error('❌ Erro em findAll:', error);
       throw new InternalServerErrorException('Erro ao buscar projetos');
     }
   }
@@ -315,5 +328,35 @@ export class CriativosService {
 
   async getCacheValue(key: string): Promise<any> {
     return await this.cacheManager.get(key);
+  }
+
+  async debugFindAll(): Promise<any> {
+    try {
+      // Buscar todos sem filtros
+      const allRecords = await this.criativosRepository.find({
+        order: { dataCriacao: 'DESC' }
+      });
+      
+      // Contar por status
+      const byStatus = {
+        ativo: allRecords.filter(r => r.status === 'ativo').length,
+        inativo: allRecords.filter(r => r.status === 'inativo').length,
+        excluido: allRecords.filter(r => r.status === 'excluido').length
+      };
+      
+      return {
+        total: allRecords.length,
+        byStatus,
+        records: allRecords.map(r => ({
+          id: r.id,
+          titulo: r.titulo,
+          status: r.status,
+          dataCriacao: r.dataCriacao
+        }))
+      };
+    } catch (error) {
+      this.logger.error(`Erro no debug: ${error.message}`, error.stack, 'CriativosService');
+      throw error;
+    }
   }
 }

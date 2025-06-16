@@ -70,7 +70,7 @@ async function bootstrap() {
 
   // ✅ 4. CORS
   app.enableCors({
-    origin: [frontEndUrl, 'http://localhost:4200'], // ✅ Adicionar explicitamente
+    origin: [frontEndUrl, 'http://localhost:4200', 'http://localhost:3535', 'http://gustavodcdamas.com.br', 'https://gustavodcdamas.com.br', 'http://agencia-frontend', 'http://agencia-frontend:4200', 'http://agencia-frontend:3535'], // ✅ Adicionar explicitamente
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     credentials: true,
     allowedHeaders: [

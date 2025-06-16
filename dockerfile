@@ -91,9 +91,9 @@ ENV PORT=3333
 # Volume para uploads
 VOLUME ["/usr/src/app/uploads"]
 
-# Healthcheck
+# Healthcheck - usando o endpoint público
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:$PORT/health || exit 1
+    CMD curl -f http://localhost:$PORT/api/monitoring/health/public || exit 1
 
 # Comando de inicialização
 ENTRYPOINT ["dumb-init", "--"]

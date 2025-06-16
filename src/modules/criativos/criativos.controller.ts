@@ -252,4 +252,15 @@ export class CriativosController {
       };
     }
   }
+
+  @Post('debug/clear-cache')
+  async clearCache(): Promise<any> {
+    await this.criativosService.clearCache();
+    return { message: 'Cache limpo com sucesso' };
+  }
+
+  @Get('debug/all')
+  async debugAll(): Promise<any> {
+    return await this.criativosService.debugFindAll();
+  }
 }

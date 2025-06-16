@@ -13,7 +13,7 @@ const dataSourceOptions: DataSourceOptions = {
   database: process.env.DB_NAME,
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
   migrations: [path.join(__dirname, './migrations/*.{js, ts}')],
-  synchronize: true,
+  synchronize: false,
   migrationsRun: true,
   logging: true,
 };

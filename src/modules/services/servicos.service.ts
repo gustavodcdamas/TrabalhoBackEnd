@@ -67,39 +67,54 @@ export class ServicosService {
     try {
       const { status, search, page = 1, limit = 10 } = options;
       
-      console.log('🔍 findAll chamado com opções:', { status, search, page, limit });
+      console.log('🔍 findAll usando padrão LANDING:', { status, search, page, limit });
       
-      // ✅ TENTAR CACHE REDIS PRIMEIRO
-      if (!status && !search && page === 1 && limit === 10) {
-        const cached = await this.redisService.get<Servicos[]>(this.CACHE_KEY_SERVICOS);
-        if (cached && Array.isArray(cached)) {
-          console.log('✅ Dados obtidos do Redis cache:', cached.length, 'itens');
-          return cached;
-        }
+      // ✅ USAR QUERY BUILDER COMO NO LANDING
+      const queryBuilder = this.servicosRepository.createQueryBuilder('servicos');
+      
+      // ✅ IMPORTANTE: Incluir deleted_at IS NULL explicitamente
+      queryBuilder.where('servicos.deleted_at IS NULL');
+      
+      // Filtrar por status se especificado
+      if (status && status !== 'all') {
+        queryBuilder.andWhere('servicos.status = :status', { status });
+      } else {
+        // Se não especificado, buscar apenas ativos
+        queryBuilder.andWhere('servicos.status = :status', { status: 'ativo' });
       }
-
-      console.log('🗄️ Buscando dados no banco...');
       
-      // Buscar do banco
-      const result = await this.servicosRepository.find({
-        where: { status: 'ativo' },
-        order: { dataCriacao: 'DESC' },
-        take: limit,
-        skip: (page - 1) * limit
-      });
+      // Filtrar por busca se especificada
+      if (search) {
+        queryBuilder.andWhere(
+          '(servicos.titulo ILIKE :search OR servicos.cliente ILIKE :search OR servicos.descricao ILIKE :search)',
+          { search: `%${search}%` }
+        );
+      }
       
-      console.log('📊 Dados do banco:', result.length, 'itens');
+      // Ordenar por data de criação (mais recentes primeiro)
+      queryBuilder.orderBy('servicos.dataCriacao', 'DESC');
       
-      // ✅ SALVAR NO REDIS
+      // Paginação
+      if (page && limit) {
+        queryBuilder.skip((page - 1) * limit).take(limit);
+      }
+      
+      const result = await queryBuilder.getMany();
+      
+      console.log('📊 Resultado com query builder:', result.length, 'registros');
+      
+      // ✅ CACHEAR NO REDIS APENAS PARA CONSULTA PADRÃO
       if (!status && !search && page === 1 && limit === 10) {
         await this.redisService.set(this.CACHE_KEY_SERVICOS, result, this.CACHE_TTL);
+        console.log('💾 Dados salvos no Redis cache');
       }
       
       return result;
 
     } catch (error) {
-      console.error('❌ Erro geral:', error);
-      throw new InternalServerErrorException('Erro ao buscar projetos');
+      console.error('❌ Erro em findAll:', error);
+      this.logger.error(`❌ Erro ao buscar serviços: ${error.message}`, error.stack, 'ServicosService');
+      throw new InternalServerErrorException('Erro ao buscar serviços');
     }
   }
 
