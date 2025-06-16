@@ -3,7 +3,7 @@ version: '3.8'
 services:
 
   agencia-backend:
-    image: agencia-backend
+    image: gustavodcdamas/agencia-backend:latest
     container_name: agencia-backend
     restart: unless-stopped
     ports:
@@ -27,7 +27,7 @@ services:
       redis:
         condition: service_healthy
   agencia-frontend:
-    image: agencia-frontend:latest
+    image: gustavodcdamas/agencia-frontend:latest
     container_name: agencia-frontend
     environment:
       - NODE_ENV=${NODE_ENV:-production}
