@@ -78,6 +78,10 @@ RUN find ./node_modules -name "*.md" -delete 2>/dev/null || true \
     && find ./node_modules -name "*.map" -delete 2>/dev/null || true \
     && find ./node_modules -name "*.ts" -delete 2>/dev/null || true
 
+RUN mkdir -p /usr/src/app/uploads /usr/src/app/logs \
+    && chown -R nestjs:nodejs /usr/src/app/uploads /usr/src/app/logs \
+    && chmod 755 /usr/src/app/uploads /usr/src/app/logs
+
 # Muda para usuário não-root
 USER nestjs
 
